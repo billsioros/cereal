@@ -1,0 +1,9 @@
+{
+    "CC": "g++",
+    "CCFLAGS": "-Wall -Wextra -std=c++17 -g3",
+    "LIBS": "-lGL -lGLU -lglut",
+    "PATH_INC": "./inc",
+    "PATH_SRC": "./src",
+    "PATH_TEST": "./test",
+    "PATH_BIN": "./bin"
+}
