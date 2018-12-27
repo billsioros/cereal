@@ -1,6 +1,6 @@
 #!/bin/bash
 
-config=".config.json"
+config="$(pwd)/.config.json"
 
 function confirm
 {
@@ -136,7 +136,7 @@ declare -A meta
 
 if [ ! -f "$config" ]
 then
-    echo "$prog: \"$config\" file not found"
+    echo "$prog: unable to locate \"$config\""
     exit 1
 else
     while read line
