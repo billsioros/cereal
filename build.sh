@@ -127,6 +127,9 @@ load_config=\
 data = json.load(sys.stdin)
 
 for field in data.keys():
+    if isinstance(data[field], list):
+        data[field] = \" \".join(data[field])
+        
     print(field, \"=\", '\"', data[field], '\"', sep='')"
 
 declare -A meta
