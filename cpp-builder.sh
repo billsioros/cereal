@@ -80,8 +80,7 @@ function generate
     deps=""
     rules=""
 
-    files=$(ls "${meta[PATH_SRC]}");
-    for file in ""$files""
+    for file in ""$1""
     do
         declare -A visited
 
@@ -136,7 +135,7 @@ declare -A meta
 
 if [ ! -f "$config" ]
 then
-    echo "$prog: unable to locate \"$config\""
+    echo "$prog: Unable to locate \"$config\""
     exit 1
 else
     while read line
@@ -154,7 +153,18 @@ else
     do
         if [[ ! -v "meta[$field]" ]]
         then
-            echo "$prog: \"$field\" was not specified"
+            echo "$prog: Field \"$field\" was not specified"
+            exit 1
+        fi
+    done
+
+    for field in ""PATH_INC PATH_SRC PATH_TEST""
+    do
+        path="${meta[$field]}"
+
+        if [ ! -d "$path" ]
+        then
+            echo "$prog:" No directory named \"$path\"
             exit 1
         fi
     done
@@ -163,10 +173,10 @@ fi
 declare -A classes
 
 # grep every global macro and extract its name
-classes[-g]=$(grep -Ev '//' ${meta[PATH_INC]}/* ${meta[PATH_SRC]}/* | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
+classes[-g]=$(grep -Evs '//' ${meta[PATH_INC]}/*.h*p ${meta[PATH_SRC]}/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
 
 # grep every unit specific macro and extract its name
-classes[-u]=$(grep -Ev '//' ${meta[PATH_TEST]}/* | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
+classes[-u]=$(grep -Evs '//' ${meta[PATH_TEST]}/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
 
 declare -A shortcuts
 
@@ -213,7 +223,7 @@ do
             # If they do have different names but same keys
             # then report a macro collision that needs to be
             # taken care of
-            echo "$prog: macro collision detected \"$macro\" \""$(echo "$entry" | cut -d ' ' -f 2)"\""
+            echo "$prog: Macro collision detected \"$macro\" \""$(echo "$entry" | cut -d ' ' -f 2)"\""
             exit 1
         else
             shortcuts["$key"]="$class $macro"
@@ -249,9 +259,17 @@ then
     exit 0
 fi
 
-if [ "$1" == "--makefile" ]
+if [ "$1" == "--makefile" ] || [ ! -f $(pwd)/Makefile ]
 then
-    confirm "Makefile"; generate > Makefile
+    files=$(ls "${meta[PATH_SRC]}");
+    
+    if [ -n "$files" ]
+    then
+        confirm "Makefile"; generate "$files" > Makefile
+    else
+        echo "$prog: Failed to generate a makefile due to directory \"${meta[PATH_SRC]}\" being empty"
+        exit 1
+    fi
 
     exit 0
 fi
@@ -288,7 +306,7 @@ do
         shift
         ;;
         *)
-        echo "$prog: invalid syntax! \"$*\""
+        echo "$prog: Invalid syntax! \"$*\""
         echo "                           ^"
         exit 1
         ;;
@@ -326,7 +344,7 @@ do
         then
             name="$file"
         else
-            echo "$prog: directory mismatch! \"$dir\""
+            echo "$prog: Directory mismatch! \"$dir\""
             continue
         fi
     fi
