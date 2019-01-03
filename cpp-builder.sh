@@ -69,11 +69,7 @@ function generate
     echo -e "\t@echo \"*** Purging binaries ***\""
     echo -e "\t@echo \"***\""
     echo -e "\trm -rvf \$(PATH_BIN)"
-    echo -e "\t@echo \"***\""
-    echo
-    echo "\$(PATH_BIN)/%.exe: \$(PATH_TEST)/%.cpp \$(OBJS)"
-    echo -e "\t\$(CC) -I \$(PATH_INC) \$(DEFINED) \$(CCFLAGS) \$< \$(OBJS) \$(LIBS) -o \$@"
-    echo
+    echo -e "\t@echo \"***\"\n\n"
 
     objs="OBJS = \$(addprefix \$(PATH_BIN)/, "
 
@@ -100,7 +96,7 @@ function generate
 
             deps_list="\$(addprefix \$(PATH_INC)/, $includes) \$(PATH_SRC)/$file.cpp"
 
-            deps="$deps$deps_name = $deps_list\n"
+            deps="$deps$deps_name = $deps_list\n\n"
         else
             deps_name=""
             deps_list=""
@@ -115,7 +111,10 @@ function generate
 
     objs="$objs)"
 
-    echo -e "$deps\n$rules\n$objs"
+    echo -e "$deps\n$rules\n$objs\n"
+
+    echo "\$(PATH_BIN)/%.exe: \$(PATH_TEST)/%.cpp \$(OBJS)"
+    echo -e "\t\$(CC) -I \$(PATH_INC) \$(DEFINED) \$(CCFLAGS) \$< \$(OBJS) \$(LIBS) -o \$@"
 }
 
 prog=$(basename "$0")
