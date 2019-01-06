@@ -11,7 +11,7 @@
 
 * The configuration file must be located in the current working directory
 * For the makefile generation to work properly, the extension of every header file must be either .h or .hpp
-* For the macro shortcut system to work properly, the macros must be of the format "__.*__", for example "__VERBOSE__"
+* For the macro shortcut system to work properly, the macros must be of the format "\_\_.*\_\_", for example "\_\_VERBOSE\_\_"
 * When listing executables with the "--executable" flag the directory and the extension
 of the executable need not be specified
 
