@@ -19,5 +19,5 @@ of the executable need not be specified
 
 ```bash
 wget https://raw.githubusercontent.com/billsioros/cpp-build/master/cpp-build.sh;
-sudo mv -i cpp-builder /usr/local/bin/cpp-build;
+sudo mv -i ./cpp-build.sh /usr/local/bin/cpp-build;
 ```
