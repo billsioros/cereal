@@ -1,12 +1,85 @@
 #!/bin/bash
 
+# Save the script's name in order to report errors, warnings and messages under it
+prog=$(basename "$0")
+
+function log
+{
+    if [ "$1" == ERROR ]
+    then
+        echo -e "$prog: $(tput setaf 3)$2$(tput sgr0)"
+    elif [ "$1" == WARNING ]
+    then
+        echo -e "$prog: $(tput setaf 9)$2$(tput sgr0)"
+    else
+        echo -e "$prog: $(tput setaf 6)$2$(tput sgr0)"
+    fi
+}
+
+# The configuration file must be located in the current working directory
 config="$(pwd)/.config.json"
 
+# A python script used in order to read the configuration file
+load_config=\
+"import sys, json;
+
+data = json.load(sys.stdin)
+
+for field in data.keys():
+    if isinstance(data[field], list):
+        data[field] = \" \".join(data[field])
+        
+    print(field, \"=\", '\"', data[field], '\"', sep='')"
+
+declare -A meta
+
+# Store the configuration file's contents into the associative array "meta"
+# Check if all the expected fields have been mentioned and
+# if the mentioned directories exist
+if [ ! -f "$config" ]
+then
+    log ERROR "Unable to locate \"$config\""
+    exit 1
+else
+    while read line
+    do
+        if [[ $line =~ (.*)=\"(.*)\" ]]
+        then
+            key="${BASH_REMATCH[1]}"
+            val="${BASH_REMATCH[2]}"
+
+            meta["$key"]="$val"
+        fi
+    done <<< $(cat "$config" | python3 -c "$load_config")
+
+    for field in ""CC CCFLAGS LIBS PATH_INC PATH_SRC PATH_TEST PATH_BIN""
+    do
+        if [[ ! -v "meta[$field]" ]]
+        then
+            log ERROR "Field \"$field\" was not specified"
+            exit 1
+        fi
+    done
+
+    for field in ""PATH_INC PATH_SRC PATH_TEST""
+    do
+        path="${meta[$field]}"
+
+        if [ ! -d "$path" ]
+        then
+            log ERROR "No directory named \"$path\""
+            exit 1
+        fi
+    done
+fi
+
+# A function used in order to confirm whether or not to overwrite
+# the file specified by "$1"
 function confirm
 {
     if [ -e "$1" ]
     then
-        read -p "Are you sure you want to overwrite \"$1\": " answer
+        read -p "$(log WARNING "Are you sure you want to overwrite \"$1\": ")" answer
         if [[ "$answer" != [yY] ]] && [[ "$answer" != [yY][eE][sS] ]]
         then
             exit 1
@@ -14,6 +87,9 @@ function confirm
     fi
 }
 
+# Recursively find all the dependencies of the file specified by "$1"
+# For this to work properly the name of every header file must be
+# of the format *.h or *.hpp
 function grep_include_directives
 {
 	local includes=$(grep -Eo '["<].*\.[hi]pp[">]' $1)
@@ -41,6 +117,12 @@ function grep_include_directives
 	done
 }
 
+# Generate a makefile that contains:
+# (1) An explicit rule for each .cpp file residing in the "$PATH_SRC" directory
+# (2) A wildcard rule for every test unit residing in the "$PATH_TEST" directory
+# (3) A "clean" rule in order to remove the "$PATH_BIN" directory and its contents
+# (4) An "all" rule that results in the separate compilation of every .cpp file
+#     residing in the "$PATH_SRC" directory
 function generate
 {
     echo
@@ -117,59 +199,9 @@ function generate
     echo -e "\t\$(CC) -I \$(PATH_INC) \$(DEFINED) \$(CCFLAGS) \$< \$(OBJS) \$(LIBS) -o \$@"
 }
 
-prog=$(basename "$0")
-
-load_config=\
-"import sys, json;
-
-data = json.load(sys.stdin)
-
-for field in data.keys():
-    if isinstance(data[field], list):
-        data[field] = \" \".join(data[field])
-        
-    print(field, \"=\", '\"', data[field], '\"', sep='')"
-
-declare -A meta
-
-if [ ! -f "$config" ]
-then
-    echo "$prog: Unable to locate \"$config\""
-    exit 1
-else
-    while read line
-    do
-        if [[ $line =~ (.*)=\"(.*)\" ]]
-        then
-            key="${BASH_REMATCH[1]}"
-            val="${BASH_REMATCH[2]}"
-
-            meta["$key"]="$val"
-        fi
-    done <<< $(cat "$config" | python3 -c "$load_config")
-
-    for field in ""CC CCFLAGS LIBS PATH_INC PATH_SRC PATH_TEST PATH_BIN""
-    do
-        if [[ ! -v "meta[$field]" ]]
-        then
-            echo "$prog: Field \"$field\" was not specified"
-            exit 1
-        fi
-    done
-
-    for field in ""PATH_INC PATH_SRC PATH_TEST""
-    do
-        path="${meta[$field]}"
-
-        if [ ! -d "$path" ]
-        then
-            echo "$prog:" No directory named \"$path\"
-            exit 1
-        fi
-    done
-fi
-
 declare -A classes
+
+# The macros must be of the format __.*__
 
 # grep every global macro and extract its name
 classes[-g]=$(grep -Evs '//' ${meta[PATH_INC]}/*.h*p ${meta[PATH_SRC]}/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
@@ -195,7 +227,7 @@ do
 
         if [[ "$key" =~ (-[ugxr]) ]]
         then
-            echo "$prog: \"$macro\"'s shortcut shadows \"${BASH_REMATCH[1]}\" flag"
+            log ERROR "\"$macro\"'s shortcut shadows \"${BASH_REMATCH[1]}\" flag"
             exit 1
         fi
 
@@ -222,7 +254,7 @@ do
             # If they do have different names but same keys
             # then report a macro collision that needs to be
             # taken care of
-            echo "$prog: Macro collision detected \"$macro\" \""$(echo "$entry" | cut -d ' ' -f 2)"\""
+            log ERROR "Macro collision detected \"$macro\" \""$(echo "$entry" | cut -d ' ' -f 2)"\""
             exit 1
         else
             shortcuts["$key"]="$class $macro"
@@ -230,6 +262,7 @@ do
     done
 done
 
+# Print helpful text
 if [ "$1" == "--help" ]
 then
     echo "# Options:"
@@ -258,6 +291,7 @@ then
     exit 0
 fi
 
+# If the "--makefile" flag was specified or there's no Makefile generate one
 if [ "$1" == "--makefile" ] || [ ! -f $(pwd)/Makefile ]
 then
     files=$(ls "${meta[PATH_SRC]}");
@@ -266,13 +300,14 @@ then
     then
         confirm "Makefile"; generate "$files" > Makefile
     else
-        echo "$prog: Failed to generate a makefile due to directory \"${meta[PATH_SRC]}\" being empty"
+        log ERROR "Failed to generate a makefile due to directory \"${meta[PATH_SRC]}\" being empty"
         exit 1
     fi
 
     exit 0
 fi
 
+# Preprocess the input in order to substitute any shortcuts with their true meaning
 cmd="$*"
 for key in ${!shortcuts[@]}
 do
@@ -281,6 +316,7 @@ done
 
 set -- ""${cmd[@]}""
 
+# Handle the different options mentioned by the program when run with the "--help" flag
 while [ ! "$#" -eq 0 ]
 do
     case "$1" in
@@ -305,13 +341,16 @@ do
         shift
         ;;
         *)
-        echo "$prog: Invalid syntax! \"$*\""
-        echo "                           ^"
+        log ERROR "Invalid syntax! \"$*\""
+        echo "$(printf "%-$(expr length "$prog: Invalid syntax! \"")s" " ")^"
         exit 1
         ;;
     esac
 done
 
+# If any number of global macros have been specified or
+# the "--rebuild" flag was specified and we were not refering to specific executables
+# everything is recompiled
 if ([ "$rebuild" ] && [ -z "$fexe" ]) || [ ! -z "$dlib" ]
 then
     make clean
@@ -319,6 +358,7 @@ fi
 
 make "DEFINED=$dlib"
 
+# If no executables have been specified compile every test unit
 if [ -z "$fexe" ]
 then
     fexe=$(ls ${meta[PATH_TEST]})
@@ -327,6 +367,8 @@ fi
 echo "-e" "\n*** Compiling exe files ***"
 echo "***"
 
+# When listing executables with the "--executable" flag the directory and the extension
+# of the executable need not be specified
 for name in ""$fexe""
 do
     if [ -z "$name" ]
@@ -343,13 +385,17 @@ do
         then
             name="$file"
         else
-            echo "$prog: Directory mismatch! \"$dir\""
+            log WARNING "Directory mismatch! \"$dir\""
             continue
         fi
     fi
 
     name="${meta[PATH_BIN]}/${name//.*/}.exe"
 
+    # If the executable already exists but
+    # the "--rebuild" flag was specified or
+    # any test unit specific macros have been specified
+    # recompile it
     if ([ "$rebuild" ] || [ ! -z "$dexe" ]) && [ -x "$name" ]
     then
         rm -f "$name"
