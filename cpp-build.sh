@@ -7,12 +7,12 @@ function log
 {
     if [ "$1" == ERROR ]
     then
-        echo -e "$prog: $(tput setaf 3)$2$(tput sgr0)"
+        echo -e "$(tput setaf 3)$prog:~$(tput sgr0) $2"
     elif [ "$1" == WARNING ]
     then
-        echo -e "$prog: $(tput setaf 9)$2$(tput sgr0)"
+        echo -e "$(tput setaf 9)$prog:~$(tput sgr0) $2"
     else
-        echo -e "$prog: $(tput setaf 6)$2$(tput sgr0)"
+        echo -e "$(tput setaf 6)$prog:~$(tput sgr0) $2"
     fi
 }
 
@@ -342,7 +342,6 @@ do
         ;;
         *)
         log ERROR "Invalid syntax! \"$*\""
-        echo "$(printf "%-$(expr length "$prog: Invalid syntax! \"")s" " ")^"
         exit 1
         ;;
     esac
