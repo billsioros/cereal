@@ -114,7 +114,7 @@ The result of running the script with the "--help" flag:
 
     # Example: cpp-build.sh -r -u __BENCHMARK__ -u __QUIET__ -g __CACHE_SIZE__=32768
 
-If we now want to compile our program with the "\_\_ARBITARY\_\_" flag enabled we can simply run the script with the "-a" flag
+As you can see in the above snippet, instead of verbosely stating the macro we want to define we can instead run the script with the corresponding shortcut flag and our macro will end up being defined in the final executable
 
 ## Notice
 
