@@ -1,0 +1,4 @@
+{
+	"-a": "-u __ARBITARY__",
+	"yo": "--makefile -a -r -x ./bin/main.exe"
+}

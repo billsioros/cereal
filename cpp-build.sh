@@ -1,85 +1,32 @@
 #!/bin/bash
 
-# Save the script's name in order to report errors, warnings and messages under it
-prog=$(basename "$0")
+prog=$(basename "$0"); config_name=".config.json"; shrtct_name=".shortcuts.json"
 
-function log
+function hightlight
 {
     if [ "$1" == ERROR ]
     then
-        echo -e "$(tput setaf 3)$prog:~$(tput sgr0) $2"
+        color=3
     elif [ "$1" == WARNING ]
     then
-        echo -e "$(tput setaf 9)$prog:~$(tput sgr0) $2"
+        color=9
     else
-        echo -e "$(tput setaf 6)$prog:~$(tput sgr0) $2"
+        color=6
     fi
+
+    echo "$(tput setaf $color)$2$(tput sgr0)"
 }
 
-# The configuration file must be located in the current working directory
-config="$(pwd)/.config.json"
+function log
+{
+    echo -e "$(hightlight $1 $prog:~) $2"
+}
 
-# A python script used in order to read the configuration file
-load_config=\
-"import sys, json;
-
-data = json.load(sys.stdin)
-
-for field in data.keys():
-    if isinstance(data[field], list):
-        data[field] = \" \".join(data[field])
-        
-    print(field, \"=\", '\"', data[field], '\"', sep='')"
-
-declare -A meta
-
-# Store the configuration file's contents into the associative array "meta"
-# Check if all the expected fields have been mentioned and
-# if the mentioned directories exist
-if [ ! -f "$config" ]
-then
-    log ERROR "Unable to locate \"$config\""
-    exit 1
-else
-    while read line
-    do
-        if [[ $line =~ (.*)=\"(.*)\" ]]
-        then
-            key="${BASH_REMATCH[1]}"
-            val="${BASH_REMATCH[2]}"
-
-            meta["$key"]="$val"
-        fi
-    done <<< $(cat "$config" | python3 -c "$load_config")
-
-    for field in ""CC CCFLAGS LIBS PATH_INC PATH_SRC PATH_TEST PATH_BIN""
-    do
-        if [[ ! -v "meta[$field]" ]]
-        then
-            log ERROR "Field \"$field\" was not specified"
-            exit 1
-        fi
-    done
-
-    for field in ""PATH_INC PATH_SRC PATH_TEST""
-    do
-        path="${meta[$field]}"
-
-        if [ ! -d "$path" ]
-        then
-            log ERROR "No directory named \"$path\""
-            exit 1
-        fi
-    done
-fi
-
-# A function used in order to confirm whether or not to overwrite
-# the file specified by "$1"
 function confirm
 {
     if [ -e "$1" ]
     then
-        read -p "$(log WARNING "Are you sure you want to overwrite \"$1\": ")" answer
+        read -p "$(log WARNING "Are you sure you want to overwrite '$1': ")" answer
         if [[ "$answer" != [yY] ]] && [[ "$answer" != [yY][eE][sS] ]]
         then
             exit 1
@@ -87,9 +34,64 @@ function confirm
     fi
 }
 
-# Recursively find all the dependencies of the file specified by "$1"
-# For this to work properly the name of every header file must be
-# of the format *.h or *.hpp
+load_config=\
+"import sys, json;
+
+data = json.load(sys.stdin)
+
+for field in data.keys():
+    if isinstance(data[field], list) and (field == \"CCFLAGS\" or field == \"LIBS\"):
+        data[field] = \" \".join(data[field])
+
+    print(field, \"=\", '\"', data[field], '\"', sep='')"
+
+load_shrtct=\
+"import sys, json;
+
+data = json.load(sys.stdin)
+
+for field in data.keys():        
+    print(\"shortcuts[\", field, \"]\", \"=\", '\"', data[field], '\"', sep='')"
+
+if [ ! -f "$config_name" ]
+then
+    log ERROR "Unable to locate $config_name"; exit 1
+else
+    while read line
+    do
+        eval "$line"
+    done <<< "$(cat "$config_name" | python3 -c "$load_config" 2> /dev/null)"
+
+    for field in ""CC PATH_INC PATH_SRC PATH_TEST PATH_BIN""
+    do
+        if [ ! -v "$field" ]
+        then
+            log ERROR "'$field' was not specified"; exit 1
+        fi
+
+        if [ "$field" != CC ] && [ "$field" != PATH_BIN ]
+        then
+            path="${!field}"
+
+            if [ ! -d "$path" ]
+            then
+                log ERROR "No directory named '$path'"
+                exit 1
+            fi
+        fi
+    done
+fi
+
+if [ -f "$shrtct_name" ]
+then
+    declare -A shortcuts
+
+    while read line
+    do
+        eval "$line"
+    done <<< $(cat "$shrtct_name" | python3 -c "$load_shrtct" 2> /dev/null)
+fi
+
 function grep_include_directives
 {
 	local includes=$(grep -Eo '["<].*\.[hi]pp[">]' $1)
@@ -98,8 +100,6 @@ function grep_include_directives
 	then
 		return
 	fi
-
-	local dependencies=""
 
 	for include in ""$includes""
 	do
@@ -112,29 +112,23 @@ function grep_include_directives
 			continue
 		else
 			visited["$include"]=true
-			grep_include_directives "${meta[PATH_INC]}/$include"
+			grep_include_directives "$PATH_INC/$include"
 		fi
 	done
 }
 
-# Generate a makefile that contains:
-# (1) An explicit rule for each .cpp file residing in the "$PATH_SRC" directory
-# (2) A wildcard rule for every test unit residing in the "$PATH_TEST" directory
-# (3) A "clean" rule in order to remove the "$PATH_BIN" directory and its contents
-# (4) An "all" rule that results in the separate compilation of every .cpp file
-#     residing in the "$PATH_SRC" directory
-function generate
+function generate_makefile
 {
     echo
-    echo "CC = ${meta[CC]}"
-    echo "CCFLAGS = ${meta[CCFLAGS]}"
+    echo "CC = $CC"
+    echo "CCFLAGS = $CCFLAGS"
     echo
-    echo "LIBS = ${meta[LIBS]}"
+    echo "LIBS = $LIBS"
     echo
-    echo "PATH_SRC = ${meta[PATH_SRC]}"
-    echo "PATH_INC = ${meta[PATH_INC]}"
-    echo "PATH_BIN = ${meta[PATH_BIN]}"
-    echo "PATH_TEST = ${meta[PATH_TEST]}"
+    echo "PATH_SRC = $PATH_SRC"
+    echo "PATH_INC = $PATH_INC"
+    echo "PATH_BIN = $PATH_BIN"
+    echo "PATH_TEST = $PATH_TEST"
     echo
     echo ".PHONY: all"
     echo "all:"
@@ -162,7 +156,7 @@ function generate
     do
         declare -A visited
 
-        grep_include_directives "${meta[PATH_SRC]}/$file"; includes=${!visited[@]}
+        grep_include_directives "$PATH_SRC/$file"; includes=${!visited[@]}
 
         unset visited
 
@@ -199,71 +193,82 @@ function generate
     echo -e "\t\$(CC) -I \$(PATH_INC) \$(DEFINED) \$(CCFLAGS) \$< \$(OBJS) \$(LIBS) -o \$@"
 }
 
-declare -A classes
+function generate_shortcuts
+{
+    declare -A classes
 
-# The macros must be of the format __.*__
+    classes[-g]=$(grep -Evs '//' $PATH_INC/*.h*p $PATH_SRC/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
 
-# grep every global macro and extract its name
-classes[-g]=$(grep -Evs '//' ${meta[PATH_INC]}/*.h*p ${meta[PATH_SRC]}/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
+    classes[-u]=$(grep -Evs '//' $PATH_TEST/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
 
-# grep every unit specific macro and extract its name
-classes[-u]=$(grep -Evs '//' ${meta[PATH_TEST]}/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
+    declare -A shortcuts
 
-declare -A shortcuts
-
-# For every class of macros
-for class in "${!classes[@]}"
-do
-    # For each macro in the current class
-    for macro in ""${classes[$class]}""
+    for class in "${!classes[@]}"
     do
-        if [[ -z "$macro" ]]
-        then
-            continue
-        fi
-
-        # Create a key corresponding to the macro at hand
-        key="-$(echo ${macro:2:1} | tr [:upper:] [:lower:])"
-
-        if [[ "$key" =~ (-[ugxr]) ]]
-        then
-            log ERROR "\"$macro\"'s shortcut shadows \"${BASH_REMATCH[1]}\" flag"
-            exit 1
-        fi
-
-        entry="${shortcuts[$key]}"
-
-        # If there is no entry matching the current key register it
-        # Otherwise
-        if [[ -n "$entry" ]]
-        then
-            # If they don't have different names
-            if [[ "$entry" =~ (-?)"$macro" ]]
+        for macro in ""${classes[$class]}""
+        do
+            if [[ -z "$macro" ]]
             then
-                # If the macro at hand is global
-                if [[ "$class" == -g ]]
-                then
-                    # It overrides the existing entry
-                    shortcuts["$key"]="$class $macro"
-                fi
-
-                # Otherwise move on to the next macro
                 continue
             fi
 
-            # If they do have different names but same keys
-            # then report a macro collision that needs to be
-            # taken care of
-            log ERROR "Macro collision detected \"$macro\" \""$(echo "$entry" | cut -d ' ' -f 2)"\""
-            exit 1
-        else
-            shortcuts["$key"]="$class $macro"
-        fi
+            key="-$(echo ${macro:2:1} | tr [:upper:] [:lower:])"
+
+            if [[ "$key" =~ (-[ugxr]) ]]
+            then
+                log ERROR "'$macro' shortcut shadows \"${BASH_REMATCH[1]}\" flag"
+                exit 1
+            fi
+
+            entry="${shortcuts[$key]}"
+
+            if [[ -n "$entry" ]]
+            then
+                if [[ "$entry" =~ (-?)"$macro" ]]
+                then
+                    if [[ "$class" == -g ]]
+                    then
+                        shortcuts["$key"]="$class $macro"
+                    fi
+
+                    continue
+                fi
+
+                log ERROR "Macro collision detected '$macro' '"$(echo "$entry" | cut -d ' ' -f 2)"'"
+                exit 1
+            else
+                shortcuts["$key"]="$class $macro"
+            fi
+        done
     done
+
+    i=1
+
+    echo "{"
+    for key in "${!shortcuts[@]}"
+    do
+        echo -en "\t\"$key\": \"${shortcuts[$key]}\""
+
+        if [ "$i" -lt "${#shortcuts[@]}" ]
+        then
+            echo ","
+        else
+            echo
+        fi
+
+        ((i++))
+    done
+    echo "}"
+}
+
+cmd="$*";
+
+for key in "${!shortcuts[@]}"
+do
+    full="${shortcuts[$key]}"; cmd=${cmd/$key/$full}
 done
 
-# Print helpful text
-if [ "$1" == "--help" ]
+if [[ "$cmd" == *"--help"* ]]
 then
     echo "# Options:"
     echo "# -u, --unit-define      Define a macro in a test unit"
@@ -291,32 +296,28 @@ then
     exit 0
 fi
 
-# If the "--makefile" flag was specified or there's no Makefile generate one
-if [ "$1" == "--makefile" ] || [ ! -f $(pwd)/Makefile ]
+if [[ "$cmd" == *"--shortcuts"* ]]
 then
-    files=$(ls "${meta[PATH_SRC]}");
+    confirm "$shrtct_name"; generate_shortcuts > "$shrtct_name"
+fi
+
+if [[ "$cmd" == *"--makefile"* ]] || [ ! -f $(pwd)/Makefile ]
+then
+    files=$(ls "$PATH_SRC");
     
     if [ -n "$files" ]
     then
-        confirm "Makefile"; generate "$files" > Makefile
+        confirm "Makefile"; generate_makefile "$files" > Makefile
     else
-        log ERROR "Failed to generate a makefile due to directory \"${meta[PATH_SRC]}\" being empty"
+        log ERROR "Failed to generate a makefile due to directory '$PATH_SRC' being empty"
         exit 1
     fi
-
-    exit 0
 fi
 
-# Preprocess the input in order to substitute any shortcuts with their true meaning
-cmd="$*"
-for key in ${!shortcuts[@]}
-do
-    full="${shortcuts[$key]}"; cmd=${cmd/$key/$full}
-done
+cmd="${cmd//--shortcuts/}"; cmd="${cmd//--makefile/}";
 
-set -- ""${cmd[@]}""
+set -- ${cmd[@]}
 
-# Handle the different options mentioned by the program when run with the "--help" flag
 while [ ! "$#" -eq 0 ]
 do
     case "$1" in
@@ -341,15 +342,12 @@ do
         shift
         ;;
         *)
-        log ERROR "Invalid syntax! \"$*\""
+        log ERROR "Invalid syntax! '$*'"
         exit 1
         ;;
     esac
 done
 
-# If any number of global macros have been specified or
-# the "--rebuild" flag was specified and we were not refering to specific executables
-# everything is recompiled
 if ([ "$rebuild" ] && [ -z "$fexe" ]) || [ ! -z "$dlib" ]
 then
     make clean
@@ -357,17 +355,14 @@ fi
 
 make "DEFINED=$dlib"
 
-# If no executables have been specified compile every test unit
 if [ -z "$fexe" ]
 then
-    fexe=$(ls ${meta[PATH_TEST]})
+    fexe=$(ls "$PATH_TEST")
 fi
 
 echo "-e" "\n*** Compiling exe files ***"
 echo "***"
 
-# When listing executables with the "--executable" flag the directory and the extension
-# of the executable need not be specified
 for name in ""$fexe""
 do
     if [ -z "$name" ]
@@ -380,21 +375,17 @@ do
         dir=${BASH_REMATCH[1]}
         file=${BASH_REMATCH[2]}
 
-        if [ "$dir" == "${meta[PATH_BIN]}" ]
+        if [ "$dir" == "$PATH_BIN" ]
         then
             name="$file"
         else
-            log WARNING "Directory mismatch! \"$dir\""
+            log WARNING "Directory mismatch! '$dir'"
             continue
         fi
     fi
 
-    name="${meta[PATH_BIN]}/${name//.*/}.exe"
+    name="$PATH_BIN/${name//.*/}.exe"
 
-    # If the executable already exists but
-    # the "--rebuild" flag was specified or
-    # any test unit specific macros have been specified
-    # recompile it
     if ([ "$rebuild" ] || [ ! -z "$dexe" ]) && [ -x "$name" ]
     then
         rm -f "$name"
