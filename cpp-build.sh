@@ -2,6 +2,16 @@
 
 prog=$(basename "$0"); config_name=".config.json"; shrtct_name=".shortcuts.json"
 
+declare -A mappings=(
+    ["compiler"]="CC"
+    ["compiler-flags"]="CCFLAGS"
+    ["external-libraries"]="LIBS"
+    ["include-path"]="PATH_INC"
+    ["source-path"]="PATH_SRC"
+    ["test-path"]="PATH_TEST"
+    ["binaries-path"]="PATH_BIN"
+)
+
 function hightlight
 {
     if [ "$1" == ERROR ]
@@ -40,7 +50,7 @@ load_config=\
 data = json.load(sys.stdin)
 
 for field in data.keys():
-    if isinstance(data[field], list) and (field == \"CCFLAGS\" or field == \"LIBS\"):
+    if isinstance(data[field], list) and (field == \"compiler-flags\" or field == \"external-libraries\"):
         data[field] = \" \".join(data[field])
 
     print(field, \"=\", '\"', data[field], '\"', sep='')"
@@ -59,7 +69,10 @@ then
 else
     while read line
     do
-        eval "$line"
+        if [[ "$line" =~ (.*)=(\".*\") ]]
+        then
+            eval "${mappings[${BASH_REMATCH[1]}]}=${BASH_REMATCH[2]}"
+        fi
     done <<< "$(cat "$config_name" | python3 -c "$load_config" 2> /dev/null)"
 
     for field in ""CC PATH_INC PATH_SRC PATH_TEST PATH_BIN""
