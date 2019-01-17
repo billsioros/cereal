@@ -1,6 +1,10 @@
 #!/bin/bash
 
-prog=$(basename "$0"); config_name=".config.json"; shrtct_name=".shortcuts.json"
+prog=$(basename "$0");
+
+config_name=".config.json"; shrtct_name=".shortcuts.json"
+
+separator_shrtct="~@~"
 
 declare -A mappings=(
     ["compiler"]="CC"
@@ -36,7 +40,8 @@ function confirm
 {
     if [ -e "$1" ]
     then
-        read -p "$(log WARNING "Are you sure you want to overwrite '$1': ")" answer
+        read -r -p "$(log WARNING "Are you sure you want to overwrite '$1': ")" answer
+
         if [[ "$answer" != [yY] ]] && [[ "$answer" != [yY][eE][sS] ]]
         then
             exit 1
@@ -45,35 +50,72 @@ function confirm
 }
 
 load_config=\
-"import sys, json;
+"import json
 
-data = json.load(sys.stdin)
+with open(\"$config_name\", 'r') as data:
 
-for field in data.keys():
-    if isinstance(data[field], list) and (field == \"compiler-flags\" or field == \"external-libraries\"):
-        data[field] = \" \".join(data[field])
+    data = json.load(data)
 
-    print(field, \"=\", '\"', data[field], '\"', sep='')"
+    for field in data.keys():
+        if field == \"shortcuts\":
+            continue
+
+        if isinstance(data[field], list) and (field == \"compiler-flags\" or field == \"external-libraries\"):
+            data[field] = \" \".join(data[field])
+
+        print(field, \"=\", '\"', data[field], '\"', sep='')"
 
 load_shrtct=\
-"import sys, json;
+"import json, sys
 
-data = json.load(sys.stdin)
+with open(\"$config_name\", 'r') as data:
 
-for field in data.keys():        
-    print(\"shortcuts[\", field, \"]\", \"=\", '\"', data[field], '\"', sep='')"
+    data = json.load(data)
+
+    if \"shortcuts\" in data.keys():
+
+        data = data[\"shortcuts\"]
+
+        for field in data.keys():        
+            print(\"shortcuts[\", field, \"]\", \"=\", '\"', data[field], '\"', sep='')"
+
+save_shrtct=\
+"import json, sys
+
+with open(\"$config_name\", 'r+') as file:
+    data = json.load(file)
+
+    if \"shortcuts\" not in data.keys():
+        data[\"shortcuts\"] = {}
+
+    for exp in list(sys.stdin):
+        exp = exp.replace('\n', '').split(\"$separator_shrtct\")
+
+        if exp[0] in data[\"shortcuts\"] and exp[1] != data[\"shortcuts\"][exp[0]]:
+
+            ans = input(\"Would you like to overwrite\", exp[0], \": \")
+
+            if ans.lower() not in { 'y', 'yes' }:
+                continue
+
+        data[\"shortcuts\"][exp[0]] = exp[1]
+
+    file.seek(0)
+    json.dump(data, file, indent=4)
+    file.truncate()
+"
 
 if [ ! -f "$config_name" ]
 then
     log ERROR "Unable to locate $config_name"; exit 1
 else
-    while read line
+    while read -r line
     do
         if [[ "$line" =~ (.*)=(\".*\") ]]
         then
             eval "${mappings[${BASH_REMATCH[1]}]}=${BASH_REMATCH[2]}"
         fi
-    done <<< "$(cat "$config_name" | python3 -c "$load_config" 2> /dev/null)"
+    done <<< "$(python3 -c "$load_config")"
 
     for field in ""CC PATH_INC PATH_SRC PATH_TEST PATH_BIN""
     do
@@ -95,15 +137,12 @@ else
     done
 fi
 
-if [ -f "$shrtct_name" ]
-then
-    declare -A shortcuts
+declare -A shortcuts
 
-    while read line
-    do
-        eval "$line"
-    done <<< $(cat "$shrtct_name" | python3 -c "$load_shrtct" 2> /dev/null)
-fi
+while read -r line
+do
+    eval "$line"
+done <<< $(python3 -c "$load_shrtct")
 
 function grep_include_directives
 {
@@ -214,8 +253,6 @@ function generate_shortcuts
 
     classes[-u]=$(grep -Evs '//' $PATH_TEST/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
 
-    declare -A shortcuts
-
     for class in "${!classes[@]}"
     do
         for macro in ""${classes[$class]}""
@@ -255,23 +292,10 @@ function generate_shortcuts
         done
     done
 
-    i=1
-
-    echo "{"
     for key in "${!shortcuts[@]}"
     do
-        echo -en "\t\"$key\": \"${shortcuts[$key]}\""
-
-        if [ "$i" -lt "${#shortcuts[@]}" ]
-        then
-            echo ","
-        else
-            echo
-        fi
-
-        ((i++))
-    done
-    echo "}"
+        echo "$key$separator_shrtct${shortcuts[$key]}"
+    done | python3 -c "$save_shrtct"
 }
 
 cmd="$*";
@@ -309,9 +333,10 @@ then
     exit 0
 fi
 
+# TODO
 if [[ "$cmd" == *"--shortcuts"* ]]
 then
-    confirm "$shrtct_name"; generate_shortcuts > "$shrtct_name"
+    confirm "$shrtct_name"; generate_shortcuts
 fi
 
 if [[ "$cmd" == *"--makefile"* ]] || [ ! -f $(pwd)/Makefile ]

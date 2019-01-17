@@ -1,9 +1,17 @@
 {
     "compiler": "g++",
-    "compiler-flags": [ "-Wall", "-Wextra", "-std=c++17", "-g3" ],
+    "compiler-flags": [
+        "-Wall",
+        "-Wextra",
+        "-std=c++17",
+        "-g3"
+    ],
     "external-libraries": [],
     "include-path": "./inc",
     "source-path": "./src",
     "test-path": "./test",
-    "binaries-path": "./bin"
+    "binaries-path": "./bin",
+    "shortcuts": {
+        "-a": "-u __ARBITARY__"
+    }
 }
