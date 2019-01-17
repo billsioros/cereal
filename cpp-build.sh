@@ -4,7 +4,7 @@ prog=$(basename "$0");
 
 config_name=".config.json";
 
-separator_shrtct="~@~"
+separator_shrtct="@"
 
 declare -A mappings=(
     ["compiler"]="CC"
@@ -33,7 +33,7 @@ function hightlight
 
 function log
 {
-    echo -e "$(hightlight $1 $prog:~) $2"
+    echo -e "$(hightlight "$1" "$prog":~) $2"
 }
 
 function confirm
@@ -142,18 +142,20 @@ declare -A shortcuts
 while read -r line
 do
     eval "$line"
-done <<< $(python3 -c "$load_shrtct")
+done <<< "$(python3 -c "$load_shrtct")"
 
 function grep_include_directives
 {
-	local includes=$(grep -Eo '["<].*\.[hi]pp[">]' $1)
+	local includes
+    
+    includes="$(grep -Eo '["<].*\.[hi]pp[">]' "$1")"
 
 	if [ -z "$includes" ]
 	then
 		return
 	fi
 
-	for include in ""$includes""
+	for include in $includes
 	do
 		include=${include:1:${#include} - 2}
 
@@ -204,11 +206,11 @@ function generate_makefile
     deps=""
     rules=""
 
-    for file in ""$1""
+    for file in $1
     do
         declare -A visited
 
-        grep_include_directives "$PATH_SRC/$file"; includes=${!visited[@]}
+        grep_include_directives "$PATH_SRC/$file"; includes="${!visited[*]}"
 
         unset visited
 
@@ -218,7 +220,7 @@ function generate_makefile
 
         if [ -n "$includes" ]
         then
-            deps_name=$(echo $file | tr [:lower:] [:upper:])_DEP
+            deps_name=$(echo "$file" | tr "[:lower:]" "[:upper:]")_DEP
 
             rule="$rule \$($deps_name)"
 
@@ -285,20 +287,20 @@ if [[ "$cmd" == *"--shortcuts"* ]]
 then
     declare -A classes
 
-    classes[-g]=$(grep -Evs '//' $PATH_INC/*.h*p $PATH_SRC/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
+    classes[-g]=$(grep -Evs '//' "$PATH_INC"/*.h*p "$PATH_SRC"/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
 
-    classes[-u]=$(grep -Evs '//' $PATH_TEST/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
+    classes[-u]=$(grep -Evs '//' "$PATH_TEST"/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
 
     for class in "${!classes[@]}"
     do
-        for macro in ""${classes[$class]}""
+        for macro in ${classes[$class]}
         do
             if [[ -z "$macro" ]]
             then
                 continue
             fi
 
-            key="-$(echo ${macro:2:1} | tr [:upper:] [:lower:])"
+            key="-$(echo "${macro:2:1}" | tr "[:upper:]" "[:lower:]")"
 
             if [[ "$key" =~ (-[ugxr]) ]]
             then
@@ -320,7 +322,7 @@ then
                     continue
                 fi
 
-                log ERROR "Macro collision detected '$macro' '"$(echo "$entry" | cut -d ' ' -f 2)"'"
+                log ERROR "Macro collision detected '$macro' '$(echo "$entry" | cut -d ' ' -f 2)'"
                 exit 1
             else
                 shortcuts["$key"]="$class $macro"
@@ -349,7 +351,7 @@ fi
 
 cmd="${cmd//--shortcuts/}"; cmd="${cmd//--makefile/}";
 
-set -- ${cmd[@]}
+set -- ${cmd[*]}
 
 while [ ! "$#" -eq 0 ]
 do
@@ -396,7 +398,7 @@ fi
 echo "-e" "\n*** Compiling exe files ***"
 echo "***"
 
-for name in ""$fexe""
+for name in $fexe
 do
     if [ -z "$name" ]
     then
