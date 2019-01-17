@@ -2,7 +2,7 @@
 
 prog=$(basename "$0");
 
-config_name=".config.json"; shrtct_name=".shortcuts.json"
+config_name=".config.json";
 
 separator_shrtct="~@~"
 
@@ -245,8 +245,44 @@ function generate_makefile
     echo -e "\t\$(CC) -I \$(PATH_INC) \$(DEFINED) \$(CCFLAGS) \$< \$(OBJS) \$(LIBS) -o \$@"
 }
 
-function generate_shortcuts
-{
+cmd="$*";
+
+for key in "${!shortcuts[@]}"
+do
+    full="${shortcuts[$key]}"; cmd=${cmd/$key/$full}
+done
+
+if [[ "$cmd" == *"--help"* ]]
+then
+    echo "# Options:"
+    echo "# -u, --unit-define      Define a macro in a test unit"
+    echo "# -g, --global-define    Define a macro globally"
+    echo "# -x, --executable       Compile the specified executable"
+    echo "# -r, --rebuild          Recompile library / executable"
+
+    if [ ${#shortcuts[@]} -gt 0 ]
+    then
+        echo -e "\n# Shortcuts:"
+        for macro in "${!shortcuts[@]}"
+        do
+            printf "# %s, %s\n" "$macro" "${shortcuts[$macro]}"
+        done
+    fi
+
+    echo -e "\n# Usage:"
+    echo "# $prog -u [MACRO]"
+    echo "# $prog -g [MACRO]"
+    echo "# $prog -x [name]"
+    echo "# $prog -r"
+
+    echo -e "\n# Example: $prog -r -u __BENCHMARK__ -u __QUIET__ -g __CACHE_SIZE__=32768"
+
+    exit 0
+fi
+
+# TODO
+if [[ "$cmd" == *"--shortcuts"* ]]
+then
     declare -A classes
 
     classes[-g]=$(grep -Evs '//' $PATH_INC/*.h*p $PATH_SRC/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
@@ -296,50 +332,9 @@ function generate_shortcuts
     do
         echo "$key$separator_shrtct${shortcuts[$key]}"
     done | python3 -c "$save_shrtct"
-}
-
-cmd="$*";
-
-for key in "${!shortcuts[@]}"
-do
-    full="${shortcuts[$key]}"; cmd=${cmd/$key/$full}
-done
-
-if [[ "$cmd" == *"--help"* ]]
-then
-    echo "# Options:"
-    echo "# -u, --unit-define      Define a macro in a test unit"
-    echo "# -g, --global-define    Define a macro globally"
-    echo "# -x, --executable       Compile the specified executable"
-    echo "# -r, --rebuild          Recompile library / executable"
-
-    if [ ${#shortcuts[@]} -gt 0 ]
-    then
-        echo -e "\n# Shortcuts:"
-        for macro in "${!shortcuts[@]}"
-        do
-            printf "# %s, %s\n" "$macro" "${shortcuts[$macro]}"
-        done
-    fi
-
-    echo -e "\n# Usage:"
-    echo "# $prog -u [MACRO]"
-    echo "# $prog -g [MACRO]"
-    echo "# $prog -x [name]"
-    echo "# $prog -r"
-
-    echo -e "\n# Example: $prog -r -u __BENCHMARK__ -u __QUIET__ -g __CACHE_SIZE__=32768"
-
-    exit 0
 fi
 
-# TODO
-if [[ "$cmd" == *"--shortcuts"* ]]
-then
-    confirm "$shrtct_name"; generate_shortcuts
-fi
-
-if [[ "$cmd" == *"--makefile"* ]] || [ ! -f $(pwd)/Makefile ]
+if [[ "$cmd" == *"--makefile"* ]] || [ ! -f "$(pwd)/Makefile" ]
 then
     files=$(ls "$PATH_SRC");
     
