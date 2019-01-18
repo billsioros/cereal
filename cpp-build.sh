@@ -1,8 +1,15 @@
 #!/bin/bash
 
-prog=$(basename "$0");
+# TODO:
+# (1) Make --shortcuts check for shortcut collisions
+# (2) Make --shortcuts format not be so hardcoded
+# (3) Make --create method for templating classes
+# (4) Autocomplete flags
+# (5) Make some field mandatory *
 
-config_name=".config.json";
+prog=$(basename "$0")
+
+config_name=".config.json"
 
 separator_shrtct="@"
 
@@ -15,6 +22,13 @@ declare -A mappings=(
     ["test-path"]="PATH_TEST"
     ["binaries-path"]="PATH_BIN"
 )
+
+declare -A reversed
+
+for key in "${!mappings[@]}"
+do
+    reversed["${mappings["$key"]}"]="$key"
+done
 
 function hightlight
 {
@@ -48,162 +62,6 @@ function confirm
         fi
     fi
 }
-
-load_config=\
-"
-import json
-
-with open(\"$config_name\", 'r') as data:
-
-    data = json.load(data)
-
-    for field in data.keys():
-        if field == \"shortcuts\":
-            continue
-
-        if isinstance(data[field], list) and (field == \"compiler-flags\" or field == \"external-libraries\"):
-            data[field] = \" \".join(data[field])
-
-        print(field, \"=\", '\"', data[field], '\"', sep='')
-"
-
-edit_config=\
-"
-import json, os, sys
-
-class DevNull:
-    def write(self, msg):
-        pass
-
-sys.stderr = DevNull()
-
-def promt(data, field):
-    if field in data.keys() and data[field]:
-        ans = input(field.replace('-', ' ') + \" (\" + str(data[field]) + \"): \")
-
-        if field == \"compiler-flags\" or field == \"external-libraries\":
-            return ans.split() if ans.strip() else data[field]
-
-        return ans.strip() if ans.strip() else data[field]
-    else:
-        return input(field.replace('-', ' ') + \": \")
-
-mode = 'r+' if os.path.exists(\"$(realpath "$config_name")\") else 'w'
-
-with open(\"$config_name\", mode) as file:
-
-    if mode == 'r+':
-        data = json.load(file)
-    else:
-        data = {}
-
-        data[\"compiler\"]           = \"g++\"
-        data[\"compiler-flags\"]     = [
-            \"-Wall\",
-            \"-Wextra\",
-            \"-std=c++17\",
-            \"-g3\"
-        ]
-        data[\"external-libraries\"] = []
-        data[\"include-path\"]       = \"./inc\"
-        data[\"source-path\"]        = \"./src\"
-        data[\"test-path\"]          = \"./test\"
-        data[\"binaries-path\"]      = \"./bin\"
-
-    data[\"compiler\"]           = promt(data, \"compiler\")
-    data[\"compiler-flags\"]     = promt(data, \"compiler-flags\")
-    data[\"external-libraries\"] = promt(data, \"external-libraries\")
-    data[\"include-path\"]       = promt(data, \"include-path\")
-    data[\"source-path\"]        = promt(data, \"source-path\")
-    data[\"test-path\"]          = promt(data, \"test-path\")
-    data[\"binaries-path\"]      = promt(data, \"binaries-path\")
-
-    file.seek(0)
-    json.dump(data, file, indent=4)
-    file.truncate()
-"
-
-load_shrtct=\
-"
-import json, sys
-
-with open(\"$config_name\", 'r') as data:
-
-    data = json.load(data)
-
-    if \"shortcuts\" in data.keys():
-
-        data = data[\"shortcuts\"]
-
-        for field in data.keys():        
-            print(\"shortcuts[\", field, \"]\", \"=\", '\"', data[field], '\"', sep='')
-"
-
-save_shrtct=\
-"
-import json, sys
-
-with open(\"$config_name\", 'r+') as file:
-    data = json.load(file)
-
-    if \"shortcuts\" not in data.keys():
-        data[\"shortcuts\"] = {}
-
-    for exp in list(sys.stdin):
-        exp = exp.replace('\n', '').split(\"$separator_shrtct\")
-
-        if exp[0] in data[\"shortcuts\"] and exp[1] != data[\"shortcuts\"][exp[0]]:
-
-            ans = input(\"Would you like to overwrite\", exp[0], \": \")
-
-            if ans.lower() not in { 'y', 'yes' }:
-                continue
-
-        data[\"shortcuts\"][exp[0]] = exp[1]
-
-    file.seek(0)
-    json.dump(data, file, indent=4)
-    file.truncate()
-"
-
-if [ ! -f "$config_name" ] || [[ "$*" == *"--config"* ]]
-then
-    python3 -c "$edit_config"
-fi
-
-while read -r line
-do
-    if [[ "$line" =~ (.*)=(\".*\") ]]
-    then
-        eval "${mappings[${BASH_REMATCH[1]}]}=${BASH_REMATCH[2]}"
-    fi
-done <<< "$(python3 -c "$load_config" 2> /dev/null)"
-
-for field in ""CC PATH_INC PATH_SRC PATH_TEST PATH_BIN""
-do
-    if [ ! -v "$field" ]
-    then
-        log ERROR "'$field' was not specified"; exit 1
-    fi
-
-    if [ "$field" != CC ] && [ "$field" != PATH_BIN ]
-    then
-        path="${!field}"
-
-        if [ ! -d "$path" ]
-        then
-            log ERROR "No directory named '$path'"
-            exit 1
-        fi
-    fi
-done
-
-declare -A shortcuts
-
-while read -r line
-do
-    eval "$line"
-done <<< "$(python3 -c "$load_shrtct" 2> /dev/null)"
 
 function grep_include_directives
 {
@@ -308,14 +166,166 @@ function generate_makefile
     echo -e "\t\$(CC) -I \$(PATH_INC) \$(DEFINED) \$(CCFLAGS) \$< \$(OBJS) \$(LIBS) -o \$@"
 }
 
-cmd="$*";
+load_config=\
+"
+import json
 
-for key in "${!shortcuts[@]}"
+with open(\"$config_name\", 'r') as data:
+
+    data = json.load(data)
+
+    for field in data.keys():
+        if field == \"shortcuts\":
+            continue
+
+        if isinstance(data[field], list) and (field == \"compiler-flags\" or field == \"external-libraries\"):
+            data[field] = \" \".join(data[field])
+
+        print(field, \"=\", '\"', data[field], '\"', sep='')
+"
+
+edit_config=\
+"
+import json, os, sys
+
+class DevNull:
+    def write(self, msg):
+        pass
+
+sys.stderr = DevNull()
+
+def promt(data, field):
+    if data[field]:
+        ans = input(field.replace('-', ' ') + \" (\" + str(data[field]) + \"): \")
+    else:
+        ans = input(field.replace('-', ' ') + \": \")
+
+    if field == \"compiler-flags\" or field == \"external-libraries\":
+        ans = ans.split()
+    else:
+        ans = ans.strip()
+
+    return ans if ans else data[field]
+
+mode = 'r+' if os.path.exists(\"$(realpath "$config_name")\") else 'w'
+
+with open(\"$config_name\", mode) as file:
+
+    if mode == 'r+':
+        data = json.load(file)
+    else:
+        data = {}
+
+        data[\"compiler\"]           = \"g++\"
+        data[\"compiler-flags\"]     = [
+            \"-Wall\",
+            \"-Wextra\",
+            \"-std=c++17\",
+            \"-g3\"
+        ]
+        data[\"external-libraries\"] = []
+        data[\"include-path\"]       = \"./inc\"
+        data[\"source-path\"]        = \"./src\"
+        data[\"test-path\"]          = \"./test\"
+        data[\"binaries-path\"]      = \"./bin\"
+
+    data[\"compiler\"]           = promt(data, \"compiler\")
+    data[\"compiler-flags\"]     = promt(data, \"compiler-flags\")
+    data[\"external-libraries\"] = promt(data, \"external-libraries\")
+    data[\"include-path\"]       = promt(data, \"include-path\")
+    data[\"source-path\"]        = promt(data, \"source-path\")
+    data[\"test-path\"]          = promt(data, \"test-path\")
+    data[\"binaries-path\"]      = promt(data, \"binaries-path\")
+
+    file.seek(0)
+    json.dump(data, file, indent=4)
+    file.truncate()
+"
+
+load_shrtct=\
+"
+import json, sys
+
+with open(\"$config_name\", 'r') as data:
+
+    data = json.load(data)
+
+    if \"shortcuts\" in data.keys():
+
+        data = data[\"shortcuts\"]
+
+        for field in data.keys():        
+            print(\"shortcuts[\", field, \"]\", \"=\", '\"', data[field], '\"', sep='')
+"
+
+save_shrtct=\
+"
+import json, sys
+
+with open(\"$config_name\", 'r+') as file:
+    data = json.load(file)
+
+    if \"shortcuts\" not in data.keys():
+        data[\"shortcuts\"] = {}
+
+    for exp in list(sys.stdin):
+        exp = exp.replace('\n', '').split(\"$separator_shrtct\")
+
+        if exp[0] in data[\"shortcuts\"] and exp[1] != data[\"shortcuts\"][exp[0]]:
+
+            ans = input(\"Would you like to overwrite\", exp[0], \": \")
+
+            if ans.lower() not in { 'y', 'yes' }:
+                continue
+
+        data[\"shortcuts\"][exp[0]] = exp[1]
+
+    file.seek(0)
+    json.dump(data, file, indent=4)
+    file.truncate()
+"
+
+if [ ! -f "$config_name" ] || [[ "$*" == *"--config"* ]]
+then
+    log MESSAGE "Fill in the following to generate the '$config_name' file"
+    python3 -c "$edit_config"
+fi
+
+while read -r line
 do
-    full="${shortcuts[$key]}"; cmd=${cmd/$key/$full}
+    if [[ "$line" =~ (.*)=(\".*\") ]]
+    then
+        eval "${mappings[${BASH_REMATCH[1]}]}=${BASH_REMATCH[2]}"
+    fi
+done <<< "$(python3 -c "$load_config" 2> /dev/null)"
+
+for field in "${mappings[@]}"
+do
+    if [ ! -v "$field" ]
+    then
+        log ERROR "'${reversed["$field"]}' was not specified"; exit 1
+    fi
+
+    if [[ "$field" =~ PATH_(\.+) ]] && [ "${BASH_REMATCH[1]}" != BIN ]
+    then
+        path="${!field}"
+
+        if [ ! -d "$path" ]
+        then
+            log ERROR "No directory named '$path'"
+            exit 1
+        fi
+    fi
 done
 
-if [[ "$cmd" == *"--help"* ]]
+declare -A shortcuts
+
+while read -r line
+do
+    eval "$line"
+done <<< "$(python3 -c "$load_shrtct" 2> /dev/null)"
+
+if [[ "$*" == *"--help"* ]]
 then
     echo "# Options:"
     echo "# -u, --unit-define      Define a macro in a test unit"
@@ -343,8 +353,7 @@ then
     exit 0
 fi
 
-# TODO
-if [[ "$cmd" == *"--shortcuts"* ]]
+if [[ "$*" == *"--shortcuts"* ]]
 then
     declare -A classes
 
@@ -397,7 +406,7 @@ then
     done | python3 -c "$save_shrtct" 2> /dev/null
 fi
 
-if [[ "$cmd" == *"--makefile"* ]] || [ ! -f "$(pwd)/Makefile" ]
+if [[ "$*" == *"--makefile"* ]] || [ ! -f "$(pwd)/Makefile" ]
 then
     files=$(ls "$PATH_SRC");
     
@@ -410,7 +419,14 @@ then
     fi
 fi
 
+cmd="$*";
+
 cmd="${cmd//--shortcuts/}"; cmd="${cmd//--makefile/}"; cmd="${cmd//--config/}";
+
+for key in "${!shortcuts[@]}"
+do
+    full="${shortcuts[$key]}"; cmd=${cmd/$key/$full}
+done
 
 set -- ${cmd[*]}
 
