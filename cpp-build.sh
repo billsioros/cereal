@@ -305,7 +305,7 @@ do
         log ERROR "'${reversed["$field"]}' was not specified"; exit 1
     fi
 
-    if [[ "$field" == *PATH_* ]]
+    if [[ "$field" == *PATH* ]] && [[ "$field" != *BIN* ]]
     then
         path="${!field}"
 
@@ -315,50 +315,13 @@ do
             then
                 mkdir -p "$path"
             else
-                if [[ "$field" != *BIN* ]]
-                then
-                    log ERROR "'$path' must be created in order to continue"
-                    exit 1
-                fi
+                log ERROR "'$path' needs to be created in order to continue"; exit 1
             fi
         fi
     fi
 done
 
 declare -A shortcuts
-
-while read -r line
-do
-    eval "$line"
-done <<< "$(python3 -c "$load_shrtct" 2> /dev/null)"
-
-if [[ "$*" == *"--help"* ]]
-then
-    echo "# Options:"
-    echo "# -u, --unit-define      Define a macro in a test unit"
-    echo "# -g, --global-define    Define a macro globally"
-    echo "# -x, --executable       Compile the specified executable"
-    echo "# -r, --rebuild          Recompile library / executable"
-
-    if [ ${#shortcuts[@]} -gt 0 ]
-    then
-        echo -e "\n# Shortcuts:"
-        for macro in "${!shortcuts[@]}"
-        do
-            printf "# %s, %s\n" "$macro" "${shortcuts[$macro]}"
-        done
-    fi
-
-    echo -e "\n# Usage:"
-    echo "# $prog -u [MACRO]"
-    echo "# $prog -g [MACRO]"
-    echo "# $prog -x [name]"
-    echo "# $prog -r"
-
-    echo -e "\n# Example: $prog -r -u __BENCHMARK__ -u __QUIET__ -g __CACHE_SIZE__=32768"
-
-    exit 0
-fi
 
 if [[ "$*" == *"--shortcuts"* ]]
 then
@@ -411,22 +374,51 @@ then
     do
         echo "$key$separator_shrtct${shortcuts[$key]}"
     done | python3 -c "$save_shrtct" 2> /dev/null
+else
+    while read -r line
+    do
+        eval "$line"
+    done <<< "$(python3 -c "$load_shrtct" 2> /dev/null)"
 fi
 
-if [[ "$*" == *"--makefile"* ]] || [ ! -f "$(pwd)/Makefile" ]
+if [[ "$*" == *"--help"* ]]
 then
-    files=$(ls "$PATH_SRC");
-    
-    if [ -n "$files" ] && [ -w "Makefile" ]
+    echo "# Options:"
+    echo "# -u, --unit-define      Define a macro in a test unit"
+    echo "# -g, --global-define    Define a macro globally"
+    echo "# -x, --executable       Compile the specified executable"
+    echo "# -r, --rebuild          Recompile library / executable"
+
+    if [ ${#shortcuts[@]} -gt 0 ]
     then
-        if confirm "WARNING" "Are you sure you want to overwrite 'Makefile': "
-        then
-            generate_makefile "$files" > Makefile
-        fi
-    else
-        log ERROR "Failed to generate a makefile due to directory '$PATH_SRC' being empty"
-        exit 1
+        echo -e "\n# Shortcuts:"
+        for macro in "${!shortcuts[@]}"
+        do
+            printf "# %s, %s\n" "$macro" "${shortcuts[$macro]}"
+        done
     fi
+
+    echo -e "\n# Usage:"
+    echo "# $prog -u [MACRO]"
+    echo "# $prog -g [MACRO]"
+    echo "# $prog -x [name]"
+    echo "# $prog -r"
+
+    echo -e "\n# Example: $prog -r -u __BENCHMARK__ -u __QUIET__ -g __CACHE_SIZE__=32768"
+
+    exit 0
+fi
+
+sources=$(ls "$PATH_SRC")
+
+if [ -n "$sources" ]
+then
+    if [ ! -f "Makefile" ] || ([[ "$*" == *"--makefile"* ]] && confirm "WARNING" "Are you sure you want to overwrite 'Makefile': ")
+    then
+        generate_makefile "$sources" > Makefile
+    fi
+else
+    log ERROR "Consider adding files to'$PATH_SRC'"; exit 1
 fi
 
 cmd="$*";
