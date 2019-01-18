@@ -50,7 +50,8 @@ function confirm
 }
 
 load_config=\
-"import json
+"
+import json
 
 with open(\"$config_name\", 'r') as data:
 
@@ -63,10 +64,68 @@ with open(\"$config_name\", 'r') as data:
         if isinstance(data[field], list) and (field == \"compiler-flags\" or field == \"external-libraries\"):
             data[field] = \" \".join(data[field])
 
-        print(field, \"=\", '\"', data[field], '\"', sep='')"
+        print(field, \"=\", '\"', data[field], '\"', sep='')
+"
+
+edit_config=\
+"
+import json, os, sys
+
+class DevNull:
+    def write(self, msg):
+        pass
+
+sys.stderr = DevNull()
+
+def promt(data, field):
+    if field in data.keys() and data[field]:
+        ans = input(field.replace('-', ' ') + \" (\" + str(data[field]) + \"): \")
+
+        if field == \"compiler-flags\" or field == \"external-libraries\":
+            return ans.split() if ans.strip() else data[field]
+
+        return ans.strip() if ans.strip() else data[field]
+    else:
+        return input(field.replace('-', ' ') + \": \")
+
+mode = 'r+' if os.path.exists(\"$(realpath "$config_name")\") else 'w'
+
+with open(\"$config_name\", mode) as file:
+
+    if mode == 'r+':
+        data = json.load(file)
+    else:
+        data = {}
+
+        data[\"compiler\"]           = \"g++\"
+        data[\"compiler-flags\"]     = [
+            \"-Wall\",
+            \"-Wextra\",
+            \"-std=c++17\",
+            \"-g3\"
+        ]
+        data[\"external-libraries\"] = []
+        data[\"include-path\"]       = \"./inc\"
+        data[\"source-path\"]        = \"./src\"
+        data[\"test-path\"]          = \"./test\"
+        data[\"binaries-path\"]      = \"./bin\"
+
+    data[\"compiler\"]           = promt(data, \"compiler\")
+    data[\"compiler-flags\"]     = promt(data, \"compiler-flags\")
+    data[\"external-libraries\"] = promt(data, \"external-libraries\")
+    data[\"include-path\"]       = promt(data, \"include-path\")
+    data[\"source-path\"]        = promt(data, \"source-path\")
+    data[\"test-path\"]          = promt(data, \"test-path\")
+    data[\"binaries-path\"]      = promt(data, \"binaries-path\")
+
+    file.seek(0)
+    json.dump(data, file, indent=4)
+    file.truncate()
+"
 
 load_shrtct=\
-"import json, sys
+"
+import json, sys
 
 with open(\"$config_name\", 'r') as data:
 
@@ -77,10 +136,12 @@ with open(\"$config_name\", 'r') as data:
         data = data[\"shortcuts\"]
 
         for field in data.keys():        
-            print(\"shortcuts[\", field, \"]\", \"=\", '\"', data[field], '\"', sep='')"
+            print(\"shortcuts[\", field, \"]\", \"=\", '\"', data[field], '\"', sep='')
+"
 
 save_shrtct=\
-"import json, sys
+"
+import json, sys
 
 with open(\"$config_name\", 'r+') as file:
     data = json.load(file)
@@ -105,44 +166,44 @@ with open(\"$config_name\", 'r+') as file:
     file.truncate()
 "
 
-if [ ! -f "$config_name" ]
+if [ ! -f "$config_name" ] || [[ "$*" == *"--config"* ]]
 then
-    log ERROR "Unable to locate $config_name"; exit 1
-else
-    while read -r line
-    do
-        if [[ "$line" =~ (.*)=(\".*\") ]]
-        then
-            eval "${mappings[${BASH_REMATCH[1]}]}=${BASH_REMATCH[2]}"
-        fi
-    done <<< "$(python3 -c "$load_config")"
-
-    for field in ""CC PATH_INC PATH_SRC PATH_TEST PATH_BIN""
-    do
-        if [ ! -v "$field" ]
-        then
-            log ERROR "'$field' was not specified"; exit 1
-        fi
-
-        if [ "$field" != CC ] && [ "$field" != PATH_BIN ]
-        then
-            path="${!field}"
-
-            if [ ! -d "$path" ]
-            then
-                log ERROR "No directory named '$path'"
-                exit 1
-            fi
-        fi
-    done
+    python3 -c "$edit_config"
 fi
+
+while read -r line
+do
+    if [[ "$line" =~ (.*)=(\".*\") ]]
+    then
+        eval "${mappings[${BASH_REMATCH[1]}]}=${BASH_REMATCH[2]}"
+    fi
+done <<< "$(python3 -c "$load_config" 2> /dev/null)"
+
+for field in ""CC PATH_INC PATH_SRC PATH_TEST PATH_BIN""
+do
+    if [ ! -v "$field" ]
+    then
+        log ERROR "'$field' was not specified"; exit 1
+    fi
+
+    if [ "$field" != CC ] && [ "$field" != PATH_BIN ]
+    then
+        path="${!field}"
+
+        if [ ! -d "$path" ]
+        then
+            log ERROR "No directory named '$path'"
+            exit 1
+        fi
+    fi
+done
 
 declare -A shortcuts
 
 while read -r line
 do
     eval "$line"
-done <<< "$(python3 -c "$load_shrtct")"
+done <<< "$(python3 -c "$load_shrtct" 2> /dev/null)"
 
 function grep_include_directives
 {
@@ -333,7 +394,7 @@ then
     for key in "${!shortcuts[@]}"
     do
         echo "$key$separator_shrtct${shortcuts[$key]}"
-    done | python3 -c "$save_shrtct"
+    done | python3 -c "$save_shrtct" 2> /dev/null
 fi
 
 if [[ "$cmd" == *"--makefile"* ]] || [ ! -f "$(pwd)/Makefile" ]
@@ -349,7 +410,7 @@ then
     fi
 fi
 
-cmd="${cmd//--shortcuts/}"; cmd="${cmd//--makefile/}";
+cmd="${cmd//--shortcuts/}"; cmd="${cmd//--makefile/}"; cmd="${cmd//--config/}";
 
 set -- ${cmd[*]}
 
