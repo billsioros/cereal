@@ -52,15 +52,14 @@ function log
 
 function confirm
 {
-    if [ -e "$1" ]
-    then
-        read -r -p "$(log WARNING "Are you sure you want to overwrite '$1': ")" answer
+    read -r -p "$(log "$1" "$2")" answer
 
-        if [[ "$answer" != [yY] ]] && [[ "$answer" != [yY][eE][sS] ]]
-        then
-            exit 1
-        fi
+    if [[ "$answer" != [yY] ]] && [[ "$answer" != [yY][eE][sS] ]]
+    then
+        return 1
     fi
+
+    return 0
 }
 
 function grep_include_directives
@@ -306,14 +305,22 @@ do
         log ERROR "'${reversed["$field"]}' was not specified"; exit 1
     fi
 
-    if [[ "$field" =~ PATH_(\.+) ]] && [ "${BASH_REMATCH[1]}" != BIN ]
+    if [[ "$field" == *PATH_* ]]
     then
         path="${!field}"
 
         if [ ! -d "$path" ]
         then
-            log ERROR "No directory named '$path'"
-            exit 1
+            if confirm "MESSAGE" "Would you like to create directory '$path': "
+            then
+                mkdir -p "$path"
+            else
+                if [[ "$field" != *BIN* ]]
+                then
+                    log ERROR "'$path' must be created in order to continue"
+                    exit 1
+                fi
+            fi
         fi
     fi
 done
@@ -410,9 +417,12 @@ if [[ "$*" == *"--makefile"* ]] || [ ! -f "$(pwd)/Makefile" ]
 then
     files=$(ls "$PATH_SRC");
     
-    if [ -n "$files" ]
+    if [ -n "$files" ] && [ -w "Makefile" ]
     then
-        confirm "Makefile"; generate_makefile "$files" > Makefile
+        if confirm "WARNING" "Are you sure you want to overwrite 'Makefile': "
+        then
+            generate_makefile "$files" > Makefile
+        fi
     else
         log ERROR "Failed to generate a makefile due to directory '$PATH_SRC' being empty"
         exit 1
