@@ -5,7 +5,7 @@
 # (2) Make --shortcuts format not be so hardcoded
 # (3) PATHs not ending in '/'
 # (4) Autocomplete flags
-# (5) Make some field mandatory *
+# (5) --template flag
 
 prog=$(basename "$0")
 
@@ -515,20 +515,18 @@ then
     exit 0
 fi
 
-if [[ "$*" == *"--module"* ]]
+if [[ "$*" == *"--struct"* ]] || [[ "$*" == *"--class"* ]]
 then
-    read -r -p "$(log MESSAGE "type specifier: ")" type
-
-    if [ "$type" != "struct" ] && [ "$type" != class ]
+    if [ "$#" -eq 2 ] && [ "$1" == "--struct" ]
     then
-        log ERROR "'$type' is not a valid type specifier"; exit 1
+        create_module "$2" "struct"; exit 0
+    elif [ "$#" -eq 2 ] && [ "$1" == "--class" ]
+    then
+        create_module "$2" "class"; exit 0
     else
-        read -r -p "$(log MESSAGE "identifier: ")" identifier
-        
-        create_module "$identifier" "$type"
+        log "ERROR" "Invalid syntax"
+        exit 1
     fi
-
-    exit 0
 fi
 
 sources=$(ls "$PATH_SRC")
@@ -578,7 +576,7 @@ do
         shift
         ;;
         *)
-        log ERROR "Invalid syntax! '$*'"
+        log ERROR "Invalid syntax near '$*'"
         exit 1
         ;;
     esac
