@@ -3,7 +3,7 @@
 # TODO:
 # (1) Make --shortcuts check for shortcut collisions
 # (2) Make --shortcuts format not be so hardcoded
-# (3) Make --create method for templating classes
+# (3) PATHs not ending in '/'
 # (4) Autocomplete flags
 # (5) Make some field mandatory *
 
@@ -35,7 +35,7 @@ function hightlight
     if [ "$1" == ERROR ]
     then
         color=3
-    elif [ "$1" == WARNING ]
+    elif [ "$1" == "WARNING" ]
     then
         color=9
     else
@@ -165,6 +165,112 @@ function generate_makefile
     echo -e "\t\$(CC) -I \$(PATH_INC) \$(DEFINED) \$(CCFLAGS) \$< \$(OBJS) \$(LIBS) -o \$@"
 }
 
+function create_hpp
+{
+    identifier="$1"; type="$2"
+
+    echo -e "\n#pragma once\n"
+
+    if [ "$type" == class ]
+    then
+        echo "class $identifier"
+        echo "{"
+        echo "public:"
+        echo
+    else
+        echo "struct $identifier"
+        echo "{"
+    fi
+
+    echo -e "\t$identifier();"
+    echo
+    echo -e "\t$identifier(const $identifier&);"
+    echo
+    echo -e "\t$identifier($identifier&&) noexcept;"
+    echo
+    echo -e "\t~$identifier();"
+    echo
+    echo -e "\t$identifier& operator=(const $identifier&);"
+    echo
+    echo -e "\t$identifier& operator=($identifier&&) noexcept;"
+    echo "};"
+}
+
+function create_cpp
+{
+    identifier="$1"; include="$2"
+
+    echo -e "\n#include <$include.hpp>"
+    echo
+    echo "$identifier::$identifier()"
+    echo "{"
+    echo
+    echo "}"
+    echo
+    echo "$identifier::$identifier(const $identifier& other)"
+    echo "{"
+    echo
+    echo "}"
+    echo
+    echo "$identifier::$identifier($identifier&& other) noexcept"
+    echo "{"
+    echo
+    echo "}"
+    echo
+    echo "$identifier& $identifier::operator=(const $identifier& other)"
+    echo "{"
+    echo
+    echo "}"
+    echo
+    echo "$identifier& $identifier::operator=($identifier&& other) noexcept"
+    echo "{"
+    echo
+    echo "}"
+    echo
+    echo "$identifier::~$identifier()"
+    echo "{"
+    echo
+    echo "}"
+}
+
+function create_module
+{
+    identifier="$1"; type="$2"
+
+    if ! [[ "$identifier" =~ ^[A-Za-z_]w* ]]
+    then
+        log ERROR "'$identifier' is not a valid C++ identifier"; exit 1
+    fi
+
+    module="$(echo "$identifier" | tr "[:upper:]" "[:lower:]")"
+
+    hpp="$PATH_INC"/"$module".hpp; cpp="$PATH_SRC"/"$module".cpp
+
+    if [ -f "$hpp" ]
+    then
+        if confirm "WARNING" "Are you sure you want to overwrite '$hpp': "
+        then
+            create_hpp "$identifier" "$type" > "$hpp"
+        else
+            exit 1
+        fi
+    else
+        create_hpp "$identifier" "$type" > "$hpp"
+    fi
+    
+    if [ -f "$cpp" ]
+    then
+        if confirm "WARNING" "Are you sure you want to overwrite '$cpp': "
+        then
+            create_cpp "$identifier" "$module" > "$cpp"
+        else
+            exit 1
+        fi
+    else
+        create_cpp "$identifier" "$module" > "$cpp"
+    fi
+}
+
 load_config=\
 "
 import json
@@ -272,7 +378,7 @@ with open(\"$config_name\", 'r+') as file:
 
         if exp[0] in data[\"shortcuts\"] and exp[1] != data[\"shortcuts\"][exp[0]]:
 
-            ans = input(\"Would you like to overwrite\", exp[0], \": \")
+            ans = input(\"Are you sure you want to overwrite\", exp[0], \": \")
 
             if ans.lower() not in { 'y', 'yes' }:
                 continue
@@ -286,7 +392,7 @@ with open(\"$config_name\", 'r+') as file:
 
 if [ ! -f "$config_name" ] || [[ "$*" == *"--config"* ]]
 then
-    log MESSAGE "Fill in the following to generate the '$config_name' file"
+    log MESSAGE "Fill in the following to generate a '$config_name' file"
     python3 -c "$edit_config"
 fi
 
@@ -313,7 +419,7 @@ do
         then
             if confirm "MESSAGE" "Would you like to create directory '$path': "
             then
-                mkdir -p "$path"
+                mkdir -p "$path" 2> /dev/null
             else
                 log ERROR "'$path' needs to be created in order to continue"; exit 1
             fi
@@ -409,6 +515,22 @@ then
     exit 0
 fi
 
+if [[ "$*" == *"--module"* ]]
+then
+    read -r -p "$(log MESSAGE "type specifier: ")" type
+
+    if [ "$type" != "struct" ] && [ "$type" != class ]
+    then
+        log ERROR "'$type' is not a valid type specifier"; exit 1
+    else
+        read -r -p "$(log MESSAGE "identifier: ")" identifier
+        
+        create_module "$identifier" "$type"
+    fi
+
+    exit 0
+fi
+
 sources=$(ls "$PATH_SRC")
 
 if [ -n "$sources" ]
@@ -493,7 +615,7 @@ do
         then
             name="$file"
         else
-            log WARNING "Directory mismatch! '$dir'"
+            log "WARNING" "Directory mismatch! '$dir'"
             continue
         fi
     fi
