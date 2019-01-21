@@ -62,6 +62,11 @@ function confirm
     return 0
 }
 
+function overwrite
+{
+    return $(confirm "WARNING" "Are you sure you want to overwrite '$1': ")
+}
+
 function grep_include_directives
 {
 	local includes
@@ -246,27 +251,9 @@ function create_module
 
     hpp="$PATH_INC"/"$module".hpp; cpp="$PATH_SRC"/"$module".cpp
 
-    if [ -f "$hpp" ]
+    if ([ ! -f "$hpp" ] && [ ! -f "$cpp" ]) || overwrite "$module.*"
     then
-        if confirm "WARNING" "Are you sure you want to overwrite '$hpp': "
-        then
-            create_hpp "$identifier" "$type" > "$hpp"
-        else
-            exit 1
-        fi
-    else
         create_hpp "$identifier" "$type" > "$hpp"
-    fi
-    
-    if [ -f "$cpp" ]
-    then
-        if confirm "WARNING" "Are you sure you want to overwrite '$cpp': "
-        then
-            create_cpp "$identifier" "$module" > "$cpp"
-        else
-            exit 1
-        fi
-    else
         create_cpp "$identifier" "$module" > "$cpp"
     fi
 }
@@ -533,7 +520,7 @@ sources=$(ls "$PATH_SRC")
 
 if [ -n "$sources" ]
 then
-    if [ ! -f "Makefile" ] || ([[ "$*" == *"--makefile"* ]] && confirm "WARNING" "Are you sure you want to overwrite 'Makefile': ")
+    if [ ! -f "Makefile" ] || ([[ "$*" == *"--makefile"* ]] && overwrite "Makefile")
     then
         generate_makefile "$sources" > Makefile
     fi
