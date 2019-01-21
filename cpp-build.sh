@@ -3,7 +3,6 @@
 # TODO:
 # (1) Make --shortcuts check for shortcut collisions
 # (2) Make --shortcuts format not be so hardcoded
-# (3) PATHs not ending in '/'
 # (4) Autocomplete flags
 
 prog=$(basename "$0")
@@ -53,7 +52,7 @@ function confirm
 {
     read -r -p "$(log "$1" "$2")" answer
 
-    if [[ "$answer" != [yY] ]] && [[ "$answer" != [yY][eE][sS] ]]
+    if [[ "$answer" != [yY] ]] && [[ "$answer" != [yY][eE][sS] ]] && [ ! -z "${answer// }" ]
     then
         return 1
     fi
