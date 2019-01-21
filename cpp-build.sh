@@ -5,7 +5,6 @@
 # (2) Make --shortcuts format not be so hardcoded
 # (3) PATHs not ending in '/'
 # (4) Autocomplete flags
-# (5) --template flag
 
 prog=$(basename "$0")
 
@@ -170,11 +169,16 @@ function generate_makefile
     echo -e "\t\$(CC) -I \$(PATH_INC) \$(DEFINED) \$(CCFLAGS) \$< \$(OBJS) \$(LIBS) -o \$@"
 }
 
-function create_hpp
+function create_header
 {
     identifier="$1"; type="$2"
 
     echo -e "\n#pragma once\n"
+
+    if [ "$3" == "True" ]
+    then
+        echo "template <typename T>"
+    fi
 
     if [ "$type" == class ]
     then
@@ -198,41 +202,64 @@ function create_hpp
     echo -e "\t$identifier& operator=(const $identifier&);"
     echo
     echo -e "\t$identifier& operator=($identifier&&) noexcept;"
-    echo "};"
+    echo -e "};"
+
+    if [ "$3" == "True" ]
+    then
+        echo -e "\n#include <$(echo "$identifier" | tr "[:upper:]" "[:lower:]").ipp>"
+    fi
 }
 
-function create_cpp
+function create_source
 {
     identifier="$1"; include="$2"
 
-    echo -e "\n#include <$include.hpp>"
+    if [ "$3" == "True" ]
+    then
+        template="template <typename T>\n"
+        list="<T>"
+
+        echo -e "\n#pragma once"
+    else
+        template=""
+        list=""
+
+        echo -e "\n#include <$include.hpp>"
+    fi
+
     echo
-    echo "$identifier::$identifier()"
+    echo -en "$template"
+    echo "$identifier$list::$identifier()"
     echo "{"
     echo
     echo "}"
     echo
-    echo "$identifier::$identifier(const $identifier& other)"
+    echo -en "$template"
+    echo "$identifier$list::$identifier(const $identifier$list& other)"
     echo "{"
     echo
     echo "}"
     echo
-    echo "$identifier::$identifier($identifier&& other) noexcept"
+    echo -en "$template"
+    echo "$identifier$list::$identifier($identifier$list&& other) noexcept"
     echo "{"
     echo
     echo "}"
     echo
-    echo "$identifier& $identifier::operator=(const $identifier& other)"
+    echo -en "$template"
+    echo "$identifier$list::~$identifier()"
     echo "{"
     echo
     echo "}"
     echo
-    echo "$identifier& $identifier::operator=($identifier&& other) noexcept"
+    echo -en "$template"
+    echo "$identifier$list& $identifier$list::operator=(const $identifier$list& other)"
     echo "{"
     echo
     echo "}"
     echo
-    echo "$identifier::~$identifier()"
+    echo -en "$template"
+    echo "$identifier$list& $identifier$list::operator=($identifier$list&& other) noexcept"
     echo "{"
     echo
     echo "}"
@@ -240,7 +267,7 @@ function create_cpp
 
 function create_module
 {
-    identifier="$1"; type="$2"
+    identifier="$1"; type="$2"; template="$3"
 
     if ! [[ "$identifier" =~ ^[A-Za-z_]w* ]]
     then
@@ -249,12 +276,21 @@ function create_module
 
     module="$(echo "$identifier" | tr "[:upper:]" "[:lower:]")"
 
-    hpp="$PATH_INC"/"$module".hpp; cpp="$PATH_SRC"/"$module".cpp
-
-    if ([ ! -f "$hpp" ] && [ ! -f "$cpp" ]) || overwrite "$module.*"
+    header="$PATH_INC"/"$module".hpp
+    
+    if [ "$template" == "True" ]
     then
-        create_hpp "$identifier" "$type" > "$hpp"
-        create_cpp "$identifier" "$module" > "$cpp"
+        source="$PATH_INC"/"$module".ipp
+    else
+        source="$PATH_SRC"/"$module".cpp
+    fi
+
+    if ([ ! -f "$header" ] && [ ! -f "$source" ]) || overwrite "$module.*"
+    then
+        find "$PATH_INC" "$PATH_SRC" -type f -name "$module.*" -exec rm -i {} \;
+
+        create_header "$identifier" "$type"   "$template" > "$header"
+        create_source "$identifier" "$module" "$template" > "$source"
     fi
 }
 
@@ -502,17 +538,26 @@ then
     exit 0
 fi
 
-if [[ "$*" == *"--struct"* ]] || [[ "$*" == *"--class"* ]]
+if [[ "$*" == *"--struct"* ]] || [[ "$*" == *"--class"* ]] || [[ "$*" == *"--template"* ]]
 then
     if [ "$#" -eq 2 ] && [ "$1" == "--struct" ]
     then
-        create_module "$2" "struct"; exit 0
+        create_module "$2" "struct" "False"
+        exit 0
     elif [ "$#" -eq 2 ] && [ "$1" == "--class" ]
     then
-        create_module "$2" "class"; exit 0
+        create_module "$2" "class" "False"
+        exit 0
+    elif [ "$#" -eq 3 ] && [ "$1" == "--template" ] && [ "$2" == "--struct" ]
+    then
+        create_module "$3" "struct" "True"
+        exit 0
+    elif [ "$#" -eq 3 ] && [ "$1" == "--template" ] && [ "$2" == "--class" ]
+    then
+        create_module "$3" "class" "True"
+        exit 0
     else
-        log "ERROR" "Invalid syntax"
-        exit 1
+        log "ERROR" "Invalid syntax"; exit 1
     fi
 fi
 
