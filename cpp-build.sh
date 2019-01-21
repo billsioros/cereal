@@ -635,16 +635,14 @@ do
         continue
     fi
 
-    if [[ "$name" =~ (\.?/?.+)/(.+) ]]
+    if [[ "$name" == *"/"* ]]
     then
-        dir=${BASH_REMATCH[1]}
-        file=${BASH_REMATCH[2]}
+        dir="$(dirname "$name")"
+        name="$(basename "$name")"
 
-        if [ "$dir" == "$PATH_BIN" ]
+        if [ ! "$dir" -ef "$PATH_BIN" ]
         then
-            name="$file"
-        else
-            log "WARNING" "Directory mismatch! '$dir'"
+            log "WARNING" "Directory mismatch '$dir'"
             continue
         fi
     fi
