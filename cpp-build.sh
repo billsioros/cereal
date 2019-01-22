@@ -433,6 +433,11 @@ do
         log ERROR "'${reversed["$field"]}' was not specified"; exit 1
     fi
 
+    if [ "$field" == "CC" ] && [ -z "$(command -v "${!field}")" ]
+    then
+        log ERROR "Command '${!field}' could not be found"; exit 1
+    fi
+
     if [[ "$field" == *PATH* ]] && [[ "$field" != *BIN* ]]
     then
         path="${!field}"
