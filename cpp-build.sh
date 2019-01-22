@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # TODO:
-# (1) Make --shortcuts check for shortcut collisions
 # (2) Make --shortcuts format not be so hardcoded
 # (4) Autocomplete flags
 
@@ -460,9 +459,9 @@ if [[ "$*" == *"--shortcuts"* ]]
 then
     declare -A classes
 
-    classes[-g]=$(grep -Evs '//' "$PATH_INC"/*.h*p "$PATH_SRC"/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
+    classes["--global"]=$(grep -Evs '//' "$PATH_INC"/*.h*p "$PATH_SRC"/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
 
-    classes[-u]=$(grep -Evs '//' "$PATH_TEST"/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
+    classes["--local"]=$(grep -Evs '//' "$PATH_TEST"/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
 
     for class in "${!classes[@]}"
     do
@@ -510,6 +509,21 @@ then
 else
     while read -r line
     do
+        if [[ "$line" =~ shortcuts\[(.*)\]=.* ]]
+        then
+            key="${BASH_REMATCH[1]}"
+            
+            for flag in $(grep -o -e '"--[^"]*"' "$prog" | sort --unique)
+            do
+                flag="${flag//\"/}"
+
+                if [ "$flag" == "$key" ]
+                then
+                    log WARNING "Overriding flag '$flag'"
+                fi
+            done
+        fi
+
         eval "$line"
     done <<< "$(python3 -c "$load_shrtct" 2> /dev/null)"
 fi
@@ -517,10 +531,10 @@ fi
 if [[ "$*" == *"--help"* ]]
 then
     echo "# Options:"
-    echo "# -u, --unit-define      Define a macro in a test unit"
-    echo "# -g, --global-define    Define a macro globally"
-    echo "# -x, --executable       Compile the specified executable"
-    echo "# -r, --rebuild          Recompile library / executable"
+    echo "# --local      Define a macro in a test unit"
+    echo "# --global     Define a macro globally"
+    echo "# --unit       Compile the specified executable"
+    echo "# --rebuild    Recompile library / executable"
 
     if [ ${#shortcuts[@]} -gt 0 ]
     then
@@ -532,12 +546,10 @@ then
     fi
 
     echo -e "\n# Usage:"
-    echo "# $prog -u [MACRO]"
-    echo "# $prog -g [MACRO]"
-    echo "# $prog -x [name]"
-    echo "# $prog -r"
-
-    echo -e "\n# Example: $prog -r -u __BENCHMARK__ -u __QUIET__ -g __CACHE_SIZE__=32768"
+    echo "# $prog --local      [MACRO]"
+    echo "# $prog --global     [MACRO]"
+    echo "# $prog --unit       [NAME]"
+    echo "# $prog --rebuild"
 
     exit 0
 fi
@@ -591,23 +603,23 @@ set -- ${cmd[*]}
 while [ ! "$#" -eq 0 ]
 do
     case "$1" in
-        "-u" | "--unit-define")
+        "--local")
         shift
         dexe="$dexe -D$1"
         shift
         ;;
-        "-g" | "--global-define")
+        "--global")
         shift
         dexe="$dexe -D$1"
         dlib="$dlib -D$1"
         shift
         ;;
-        "-x" | "--executable")
+        "--unit")
         shift
         fexe=$(echo -e "$1\n$fexe")
         shift
         ;;
-        "-r" | "--rebuild")
+        "--rebuild")
         rebuild=true
         shift
         ;;
@@ -630,7 +642,7 @@ then
     fexe=$(ls "$PATH_TEST")
 fi
 
-echo "-e" "\n*** Compiling exe files ***"
+echo -e "\n*** Compiling exe files ***"
 echo "***"
 
 for name in $fexe

@@ -12,6 +12,6 @@
     "test-path": "./test",
     "binaries-path": "./bin",
     "shortcuts": {
-        "-a": "-u __ARBITARY__"
+        "-a": "--local __ARBITARY__"
     }
 }
