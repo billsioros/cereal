@@ -384,7 +384,7 @@ with open(\"$config_name\", 'r') as data:
             print(\"shortcuts[\", field, \"]\", \"=\", '\"', data[field], '\"', sep='')
 "
 
-save_shrtct=\
+edit_shrtct=\
 "
 import json, sys
 
@@ -455,6 +455,26 @@ done
 
 declare -A shortcuts
 
+while read -r line
+do
+    if [[ "$line" =~ shortcuts\[(.*)\]=.* ]]
+    then
+        key="${BASH_REMATCH[1]}"
+        
+        for flag in $(grep -o -e '"--[^"]*"' "$prog" | sort --unique)
+        do
+            flag="${flag//\"/}"
+
+            if [ "$flag" == "$key" ]
+            then
+                log WARNING "'$flag' flag is being shadowed"
+            fi
+        done
+    fi
+
+    eval "$line"
+done <<< "$(python3 -c "$load_shrtct" 2> /dev/null)"
+
 if [[ "$*" == *"--shortcuts"* ]]
 then
     declare -A classes
@@ -505,27 +525,7 @@ then
     for key in "${!shortcuts[@]}"
     do
         echo "$key$separator_shrtct${shortcuts[$key]}"
-    done | python3 -c "$save_shrtct" 2> /dev/null
-else
-    while read -r line
-    do
-        if [[ "$line" =~ shortcuts\[(.*)\]=.* ]]
-        then
-            key="${BASH_REMATCH[1]}"
-            
-            for flag in $(grep -o -e '"--[^"]*"' "$prog" | sort --unique)
-            do
-                flag="${flag//\"/}"
-
-                if [ "$flag" == "$key" ]
-                then
-                    log WARNING "Overriding flag '$flag'"
-                fi
-            done
-        fi
-
-        eval "$line"
-    done <<< "$(python3 -c "$load_shrtct" 2> /dev/null)"
+    done | python3 -c "$edit_shrtct" 2> /dev/null
 fi
 
 if [[ "$*" == *"--help"* ]]
