@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# TODO:
-# (4) Autocomplete flags
-
 prog=$(basename "$0")
 
 config_name=".config.json"
@@ -492,7 +489,7 @@ do
     then
         key="${BASH_REMATCH[1]}"
         
-        for flag in $(grep -o -e '"--[A-Za-z]*"' "$prog" | sort --unique)
+        for flag in $(grep -o -e '"--[A-Za-z-]*"' "$prog" | sort --unique)
         do
             flag="${flag//\"/}"
 
@@ -516,26 +513,27 @@ fi
 
 if [[ "$*" == *"--help"* ]]
 then
-    echo "# Options:"
-    echo "# --local      Define a macro in a test unit"
-    echo "# --global     Define a macro globally"
-    echo "# --unit       Compile the specified executable"
-    echo "# --rebuild    Recompile library / executable"
-
+    hightlight WARNING "# Options:"
+    echo "# --config                      Initialize / Configure your project"
+    echo "# --makefile                    Generate a makefile"
+    echo "# --shortcuts                   Generate macro defining shortcuts"
+    echo "# --class           [MODULE]    Generate a class"
+    echo "# --struct          [MODULE]    Generate a struct"
+    echo "# --template-struct [MODULE]    Generate a template struct"
+    echo "# --template-class  [MODULE]    Generate a template class"
+    echo "# --global           [MACRO]    Define a macro globally"
+    echo "# --local            [MACRO]    Define a macro local to a test unit"
+    echo "# --unit              [UNIT]    Compile the specified unit"
+    echo "# --rebuild                     Rebuild the library / specified unit"
+    echo
     if [ ${#shortcuts[@]} -gt 0 ]
     then
-        echo -e "\n# Shortcuts:"
+        hightlight WARNING "# Shortcuts:"
         for macro in "${!shortcuts[@]}"
         do
             printf "# %s, %s\n" "$macro" "${shortcuts[$macro]}"
         done
     fi
-
-    echo -e "\n# Usage:"
-    echo "# $prog --local      [MACRO]"
-    echo "# $prog --global     [MACRO]"
-    echo "# $prog --unit       [NAME]"
-    echo "# $prog --rebuild"
 
     exit 0
 fi
@@ -545,22 +543,20 @@ then
     if [ "$#" -eq 2 ] && [ "$1" == "--struct" ]
     then
         create_module "$2" "struct" "False"
-        exit 0
     elif [ "$#" -eq 2 ] && [ "$1" == "--class" ]
     then
         create_module "$2" "class" "False"
-        exit 0
-    elif [ "$#" -eq 3 ] && [ "$1" == "--template" ] && [ "$2" == "--struct" ]
+    elif [ "$#" -eq 2 ] && [ "$1" == "--template-struct" ]
     then
-        create_module "$3" "struct" "True"
-        exit 0
-    elif [ "$#" -eq 3 ] && [ "$1" == "--template" ] && [ "$2" == "--class" ]
+        create_module "$2" "struct" "True"
+    elif [ "$#" -eq 2 ] && [ "$1" == "--template-class" ]
     then
-        create_module "$3" "class" "True"
-        exit 0
+        create_module "$2" "class" "True"
     else
         log "ERROR" "Invalid syntax"; exit 1
     fi
+
+    exit 0
 fi
 
 sources=$(ls "$PATH_SRC")
