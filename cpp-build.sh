@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # TODO:
-# (2) Make --shortcuts format not be so hardcoded
 # (4) Autocomplete flags
 
 prog=$(basename "$0")
@@ -292,6 +291,38 @@ function create_module
     fi
 }
 
+function retrieve_macros
+{
+    flag="$1"
+
+    if [ "$flag" == "--global" ]
+    then
+        cmd="grep -he \"\#ifdef\|\#ifndef\|defined\" $PATH_INC/*.[ih]pp $PATH_SRC/*.cpp"
+    else
+        cmd="grep -he \"\#ifdef\|\#ifndef\|defined\" $PATH_TEST/*.cpp"
+    fi
+
+    while read -r line
+    do
+        if
+        [[ "$line" =~ ^\#ifdef[\ ]*(.*)[\ ]*$ ]] ||
+        [[ "$line" =~ ^\#ifndef[\ ]*(.*)[\ ]*$ ]] ||
+        [[ "$line" =~ ^\#if[\ ]*defined[\ ]*\(*([^\(\)]*)\)*[\ ]*$ ]] ||
+        [[ "$line" =~ ^\#if[\ ]*\![\ ]*defined[\ ]*\(*([^\(\)]*)\)*[\ ]*$ ]]
+        then
+            macro="${BASH_REMATCH[1]}"
+
+            if [[ "$macro" =~ [^A-Za-z]*([A-Za-z]+)[^A-Za-z]* ]]
+            then
+                letter="${BASH_REMATCH[1]}"
+                letter="$(echo "${letter:0:1}" | tr "[:upper:]" "[:lower:]")"
+                
+                echo "-$letter$separator_shrtct$flag $macro"
+            fi
+        fi
+    done <<< "$(eval "$cmd")"
+}
+
 load_config=\
 "
 import json
@@ -322,9 +353,9 @@ sys.stderr = DevNull()
 
 def promt(data, field):
     if data[field]:
-        ans = input(field.replace('-', ' ') + \" (\" + str(data[field]) + \"): \")
+        ans = input(\"$(log MESSAGE "")\" + field.replace('-', ' ') + \" (\" + str(data[field]) + \"): \")
     else:
-        ans = input(field.replace('-', ' ') + \": \")
+        ans = input(\"$(log MESSAGE "")\" + field.replace('-', ' ') + \": \")
 
     if field == \"compiler-flags\" or field == \"external-libraries\":
         ans = ans.split()
@@ -398,11 +429,8 @@ with open(\"$config_name\", 'r+') as file:
         exp = exp.replace('\n', '').split(\"$separator_shrtct\")
 
         if exp[0] in data[\"shortcuts\"] and exp[1] != data[\"shortcuts\"][exp[0]]:
-
-            ans = input(\"Are you sure you want to overwrite\", exp[0], \": \")
-
-            if ans.lower() not in { 'y', 'yes' }:
-                continue
+            print(\"$(log MESSAGE "")\", \"Skipping conflicting shortcut {'\", exp[0], \"': '\", exp[1], \"'}\", sep='')
+            continue
 
         data[\"shortcuts\"][exp[0]] = exp[1]
 
@@ -421,7 +449,10 @@ while read -r line
 do
     if [[ "$line" =~ (.*)=(\".*\") ]]
     then
-        eval "${mappings[${BASH_REMATCH[1]}]}=${BASH_REMATCH[2]}"
+        if [[ ! -z "${mappings[${BASH_REMATCH[1]}]}" ]]
+        then
+            eval "${mappings[${BASH_REMATCH[1]}]}=${BASH_REMATCH[2]}"
+        fi
     fi
 done <<< "$(python3 -c "$load_config" 2> /dev/null)"
 
@@ -461,7 +492,7 @@ do
     then
         key="${BASH_REMATCH[1]}"
         
-        for flag in $(grep -o -e '"--[^"]*"' "$prog" | sort --unique)
+        for flag in $(grep -o -e '"--[A-Za-z]*"' "$prog" | sort --unique)
         do
             flag="${flag//\"/}"
 
@@ -477,55 +508,10 @@ done <<< "$(python3 -c "$load_shrtct" 2> /dev/null)"
 
 if [[ "$*" == *"--shortcuts"* ]]
 then
-    declare -A classes
+    retrieve_macros "--global" | python3 -c "$edit_shrtct" 2> /dev/null
+    retrieve_macros "--local"  | python3 -c "$edit_shrtct" 2> /dev/null
 
-    classes["--global"]=$(grep -Evs '//' "$PATH_INC"/*.h*p "$PATH_SRC"/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
-
-    classes["--local"]=$(grep -Evs '//' "$PATH_TEST"/*.c*p | grep -E '__.*__' | cut -d : -f 2 | sed -nE 's/^.*\((__.*__)\).*$/\1/p')
-
-    for class in "${!classes[@]}"
-    do
-        for macro in ${classes[$class]}
-        do
-            if [[ -z "$macro" ]]
-            then
-                continue
-            fi
-
-            key="-$(echo "${macro:2:1}" | tr "[:upper:]" "[:lower:]")"
-
-            if [[ "$key" =~ (-[ugxr]) ]]
-            then
-                log ERROR "'$macro' shortcut shadows \"${BASH_REMATCH[1]}\" flag"
-                exit 1
-            fi
-
-            entry="${shortcuts[$key]}"
-
-            if [[ -n "$entry" ]]
-            then
-                if [[ "$entry" =~ (-?)"$macro" ]]
-                then
-                    if [[ "$class" == -g ]]
-                    then
-                        shortcuts["$key"]="$class $macro"
-                    fi
-
-                    continue
-                fi
-
-                log ERROR "Macro collision detected '$macro' '$(echo "$entry" | cut -d ' ' -f 2)'"
-                exit 1
-            else
-                shortcuts["$key"]="$class $macro"
-            fi
-        done
-    done
-
-    for key in "${!shortcuts[@]}"
-    do
-        echo "$key$separator_shrtct${shortcuts[$key]}"
-    done | python3 -c "$edit_shrtct" 2> /dev/null
+    exit 0
 fi
 
 if [[ "$*" == *"--help"* ]]
