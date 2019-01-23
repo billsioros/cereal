@@ -1,7 +1,5 @@
 #!/bin/bash
 
-prog=$(basename "$0")
-
 config_name=".config.json"
 
 separator_shrtct="@"
@@ -40,7 +38,7 @@ function hightlight
 
 function log
 {
-    echo -e "$(hightlight "$1" "$prog":~) $2"
+    echo -e "$(hightlight "$1" "$(basename "$0")":~) $2"
 }
 
 function confirm
@@ -489,7 +487,7 @@ do
     then
         key="${BASH_REMATCH[1]}"
         
-        for flag in $(grep -o -e '"--[A-Za-z-]*"' "$prog" | sort --unique)
+        for flag in $(grep -o -e '"--[A-Za-z-]*"' "$0" | sort --unique)
         do
             flag="${flag//\"/}"
 
