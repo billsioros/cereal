@@ -1,6 +1,6 @@
 #!/bin/bash
 
-src="./cpp-build.sh"; dst="/usr/local/bin/cpp-build"
+src="./cereal.sh"; dst="/usr/local/bin/cereal"
 
 if [ -d "$(dirname "$dst")" ]
 then
@@ -10,11 +10,11 @@ fi
 autocompletion=\
 "
 #################################################################################
-# CPP BUILDER #
-###############
+# CEREAL #
+##########
 dst=\"$dst\"
 
-function _cpp_build_
+function _cereal_
 {
     local cur
 
@@ -25,7 +25,7 @@ function _cpp_build_
     COMPREPLY=(\$(compgen -W \"\$flags\" -- \"\$cur\"))
 }
 
-complete -F _cpp_build_ -o bashdefault \"\$(basename \"\$dst\")\"
+complete -F _cereal_ -o bashdefault \"\$(basename \"\$dst\")\"
 ################################################################################
 "
 
