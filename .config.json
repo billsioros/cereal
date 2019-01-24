@@ -12,6 +12,7 @@
     "test-path": "./test",
     "binaries-path": "./bin",
     "shortcuts": {
-        "-a": "--local __ARBITARY__"
+        "-a": "--local __ARBITARY__",
+        "--reset": "--config --makefile"
     }
 }

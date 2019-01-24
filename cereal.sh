@@ -434,7 +434,7 @@ with open(\"$config_name\", 'r+') as file:
     file.truncate()
 "
 
-if [ ! -f "$config_name" ] || [[ "$*" == *"--config"* ]]
+if [ ! -f "$config_name" ]
 then
     log MESSAGE "Fill in the following to generate a '$config_name' file"
     python3 -c "$edit_config"
@@ -500,6 +500,21 @@ do
 
     eval "$line"
 done <<< "$(python3 -c "$load_shrtct" 2> /dev/null)"
+
+cmd="$*";
+
+for key in "${!shortcuts[@]}"
+do
+    full="${shortcuts[$key]}"; cmd=${cmd/$key/$full}
+done
+
+set -- ${cmd[*]}
+
+if [[ "$*" == *"--config"* ]]
+then
+    log MESSAGE "Fill in the following to generate a '$config_name' file"
+    python3 -c "$edit_config"
+fi
 
 if [[ "$*" == *"--shortcuts"* ]]
 then
@@ -573,14 +588,9 @@ else
     log ERROR "Consider adding files to'$PATH_SRC'"; exit 1
 fi
 
-cmd="$*";
+cmd="$*"
 
-cmd="${cmd//--shortcuts/}"; cmd="${cmd//--makefile/}"; cmd="${cmd//--config/}";
-
-for key in "${!shortcuts[@]}"
-do
-    full="${shortcuts[$key]}"; cmd=${cmd/$key/$full}
-done
+cmd="${cmd//--config/}"; cmd="${cmd//--makefile/}";
 
 set -- ${cmd[*]}
 
