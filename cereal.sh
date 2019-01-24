@@ -536,7 +536,11 @@ then
     exit 0
 fi
 
-if [[ "$*" == *"--struct"* ]] || [[ "$*" == *"--class"* ]] || [[ "$*" == *"--template"* ]]
+if
+[[ "$*" == *"--struct"* ]] ||
+[[ "$*" == *"--class"* ]] ||
+[[ "$*" == *"--template-struct"* ]] ||
+[[ "$*" == *"--template-class"* ]]
 then
     if [ "$#" -eq 2 ] && [ "$1" == "--struct" ]
     then
