@@ -14,7 +14,10 @@
 
 ## Programmatic usage
 
-* Firstly, let's run **_cereal_** with the **--config** option, so that a configuration file is generated for our project. An input consisting only of whitespace characters results in the field at hand taking its default value. The **--config** option can be used in the future to edit the configuration file.
+* Firstly, let's run **_cereal_** with the **--config** option, so that a configuration file is generated for our project
+* An input consisting only of whitespace characters results in the field at hand taking its default value
+* The **--config** option can be used in the future to edit the configuration file
+* Bare in mind that generating a new makefile is required for all changes to take effect, in case you alter your configuration file
 
 ![alt text](img/config.png)
 
@@ -157,7 +160,8 @@ int main()
 
 ![alt text](img/shortcuts.png)
 
-* As you can see, **_cereal_** has detected the macro **\_\_ARBITARY\_\_** and created a shortcut for defining it. I should mention at this point that **_cereal_** does not bother itself with the macro **SIZE**, as it does not take part in any conditional preprocessing block and thus it is considered a _statement_ rather than an _option_.
+* As you can see, **_cereal_** has detected the macro **\_\_ARBITARY\_\_** and created a shortcut for defining it
+* I should mention at this point that **_cereal_** does not bother itself with the macro **SIZE**, as it does not take part in any conditional preprocessing block and thus it is considered a _statement_ rather than an _option_
 
 * The output of the final executable when compiled with and without the '-a' shortcut
 
