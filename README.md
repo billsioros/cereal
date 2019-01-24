@@ -1,19 +1,109 @@
 
-# cpp-build
+# cereal
 
-A simple bash script to make your life easier when building cpp applications. cpp-build offers makefile generation and build automation tools as well as a macro definition shortcut system
+**_cereal_** is a C++ project manager, that offers makefile and module generation utilities as well as a macro definition shortcut system
 
 ## Installation
 
-```bash
-wget https://raw.githubusercontent.com/billsioros/cpp-build/master/cpp-build.sh;
-
-sudo mv -i ./cpp-build.sh /usr/local/bin/cpp-build;
-```
+* Simply run the installation script
+* Editing '.bashrc' is required to provide autocompletion
+* Running the installation script with the **--uninstall** option, will walk you through uninstalling **_cereal_**
 
 ## Programmatic usage
 
+* Firstly, let's run the program with (or without) the **--config** option, so that we generate a configuration file for our project. An input consisting only of whitespace characters results in the field at hand taking its default value. The **--config** option can be used in the future to edit the configuration file.
+
+![alt text](img/config.png)
+
+* Let's now create a class named 'Point' using the **--class** option
+
+![alt text](img/class.png)
+
 ```cpp
+
+#include <point.hpp>
+
+Point::Point()
+{
+
+}
+
+Point::Point(const Point& other)
+{
+
+}
+
+Point::Point(Point&& other) noexcept
+{
+
+}
+
+Point::~Point()
+{
+
+}
+
+Point& Point::operator=(const Point& other)
+{
+
+}
+
+Point& Point::operator=(Point&& other) noexcept
+{
+
+}
+
+```
+
+* Let's add some funtionality to its methods
+
+```cpp
+
+#include <point.hpp>
+
+#include <utility>
+#include <fstream>
+
+Point::Point() : x(0.0f), y(0.0f)
+{
+}
+
+Point::Point(float x, float y) : x(x), y(y)
+{
+}
+
+Point::Point(const Point& other) : x(other.x), y(other.y)
+{
+}
+
+Point::Point(Point&& other) noexcept : x(std::move(other.x)), y(std::move(other.y))
+{
+}
+
+Point& Point::operator=(const Point& other)
+{
+    x = other.x; y = other.y; return *this;
+}
+
+Point& Point::operator=(Point&& other) noexcept
+{
+    x = std::move(other.x); y = std::move(other.y); return *this;
+}
+
+std::ostream& operator<<(std::ostream& os, const Point& point)
+{
+    return os
+    << "[ " << point.x
+    << ", " << point.y
+    << " ]";
+}
+
+```
+
+* Let's finally create a test unit and place it in the directory we assigned as 'test-path' during the creation of the configuration file
+
+```cpp
+
 #include <point.hpp>
 
 #include <vector>
@@ -49,77 +139,24 @@ int main()
 
     return 0;
 }
+
 ```
 
-The makefile generated after running the script with the "--makefile" flag:
+* Let's now run **_cereal_** with the **--makefile** option to generate a makefile for our project
 
-```bash
-CC = g++
-CCFLAGS = -Wall -Wextra -std=c++17 -g3
+![alt text](img/makefile.png)
 
-LIBS = -lpthread
+* If we now run **_cereal_** with the **--help** option we get this output
 
-PATH_SRC = ./src
-PATH_INC = ./inc
-PATH_BIN = ./bin
-PATH_TEST = ./test
+![alt text](img/help.png)
 
-.PHONY: all
-all:
-	mkdir -p $(PATH_BIN)
-	@echo
-	@echo "*** Compiling object files ***"
-	@echo "***"
-	make $(OBJS)
-	@echo "***"
+* Let's now run **_cereal_** with the **--shortcuts** option and check the output of the **--help** option again
 
-.PHONY: clean
-clean:
-	@echo
-	@echo "*** Purging binaries ***"
-	@echo "***"
-	rm -rvf $(PATH_BIN)
-	@echo "***"
+![alt text](img/shortcuts.png)
 
+* As you can see in the image above, **_cereal_** has detected the macro *\_\_ARBITARY\_\_* and created a shortcut for defining it. I should mention at this stage that **_cereal_** does not bother itself with the macro *SIZE* as it is considered a statement rather than an option because it is not take part in any conditional preprocessing block.
 
-POINT_DEP = $(addprefix $(PATH_INC)/, point.hpp) $(PATH_SRC)/point.cpp
+* The output of the final executable when compiled with and without the '-a' shortcut
 
-
-$(PATH_BIN)/point.o: $(POINT_DEP)
-	$(CC) -I $(PATH_INC) $(DEFINED) $(CCFLAGS) $(PATH_SRC)/point.cpp -c -o $(PATH_BIN)/point.o
-
-
-OBJS = $(addprefix $(PATH_BIN)/,  point.o)
-
-$(PATH_BIN)/%.exe: $(PATH_TEST)/%.cpp $(OBJS)
-	$(CC) -I $(PATH_INC) $(DEFINED) $(CCFLAGS) $< $(OBJS) $(LIBS) -o $@
-```
-
-The result of running the script with the "--help" flag:
-
-    # Options:
-    # -u, --unit-define      Define a macro in a test unit
-    # -g, --global-define    Define a macro globally
-    # -x, --executable       Compile the specified executable
-    # -r, --rebuild          Recompile library / executable
-
-    # Shortcuts:
-    # -a, -u __ARBITARY__
-
-    # Usage:
-    # cpp-build.sh -u [MACRO]
-    # cpp-build.sh -g [MACRO]
-    # cpp-build.sh -x [name]
-    # cpp-build.sh -r
-
-    # Example: cpp-build.sh -r -u __BENCHMARK__ -u __QUIET__ -g __CACHE_SIZE__=32768
-
-As you can see in the above snippet, instead of verbosely stating the macro we want to define we can instead run the script with the corresponding shortcut flag and our macro will end up being defined in the final executable
-
-## Notice
-
-* The configuration file must be located in the current working directory
-* For the makefile generation to work properly, the extension of every header file must be either .h or .hpp
-* For the macro shortcut system to work properly, the macros must be of the format "\_\_.*\_\_", for example "\_\_VERBOSE\_\_"
-* When using the "--executable" flag the directory and the extension
-of the executable need not be specified
+![alt text](img/with.png)
+![alt text](img/without.png)
