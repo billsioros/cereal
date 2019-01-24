@@ -3,6 +3,9 @@
 
 **_cereal_** is a C++ project manager, that offers makefile and module generation utilities as well as a macro definition shortcut system
 
+## Dependecies
+* [python3](https://www.python.org/download/releases/3.0/)
+
 ## Installation
 
 * Simply run the installation script
@@ -11,7 +14,7 @@
 
 ## Programmatic usage
 
-* Firstly, let's run the program with (or without) the **--config** option, so that we generate a configuration file for our project. An input consisting only of whitespace characters results in the field at hand taking its default value. The **--config** option can be used in the future to edit the configuration file.
+* Firstly, let's run **_cereal_** with the **--config** option, so that a configuration file is generated for our project. An input consisting only of whitespace characters results in the field at hand taking its default value. The **--config** option can be used in the future to edit the configuration file.
 
 ![alt text](img/config.png)
 
@@ -100,7 +103,7 @@ std::ostream& operator<<(std::ostream& os, const Point& point)
 
 ```
 
-* Let's finally create a test unit and place it in the directory we assigned as 'test-path' during the creation of the configuration file
+* Let's finally create a test unit and place it in the directory we designated as 'test-path' during the configuration stage
 
 ```cpp
 
@@ -146,17 +149,17 @@ int main()
 
 ![alt text](img/makefile.png)
 
-* If we now run **_cereal_** with the **--help** option we get this output
+* Running **_cereal_** with the **--help** option results in the following output
 
 ![alt text](img/help.png)
 
-* Let's now run **_cereal_** with the **--shortcuts** option and check the output of the **--help** option again
+* Let's now run **_cereal_** with the **--shortcuts** option and check if anything has changed
 
 ![alt text](img/shortcuts.png)
 
-* As you can see in the image above, **_cereal_** has detected the macro *\_\_ARBITARY\_\_* and created a shortcut for defining it. I should mention at this stage that **_cereal_** does not bother itself with the macro *SIZE* as it is considered a statement rather than an option because it is not take part in any conditional preprocessing block.
+* As you can see, **_cereal_** has detected the macro *\_\_ARBITARY\_\_* and created a shortcut for defining it. I should mention at this point that **_cereal_** does not bother itself with the macro *SIZE*, as it does not take part in any conditional preprocessing block.
 
-* The output of the final executable when compiled with and without the '-a' shortcut
+* The output of the final executable when compiled with and without the '-a' shortcut accordingly
 
 ![alt text](img/with.png)
 ![alt text](img/without.png)
