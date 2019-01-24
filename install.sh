@@ -17,6 +17,17 @@ function confirm
     return 0
 }
 
+echo \
+"
+                      X
+                     //
+     8o8o8o8o8o8o8o8//         BBBBBBBB BBBBBBB BBBBBBB   BBBBBBB BBBBB     BB
+   o8o8o8o8o8o8o8o8o8o8       BB        BB      BB    BB  BB      BB  BB    BB
+==========================    BB        BBBBBBB BBBBBBB   BBBBBBB BBBBBBB   BB
+ HHHH                HHHH     BB        BB      BB  BBB   BB      BB    BB  BB
+    HHHHHHHHHHHHHHHHHH         BBBBBBBB BBBBBBB BB    BBB BBBBBBB BB     BB BBBBBBB
+"
+
 if [ "$1" == "--uninstall" ] && confirm "Are you sure you want to continue"
 then
     sed -i '/# cereal/,/# cereal/d' ~/.bashrc
