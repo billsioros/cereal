@@ -157,9 +157,35 @@ int main()
 
 ![alt text](img/shortcuts.png)
 
-* As you can see, **_cereal_** has detected the macro *\_\_ARBITARY\_\_* and created a shortcut for defining it. I should mention at this point that **_cereal_** does not bother itself with the macro *SIZE*, as it does not take part in any conditional preprocessing block.
+* As you can see, **_cereal_** has detected the macro **\_\_ARBITARY\_\_** and created a shortcut for defining it. I should mention at this point that **_cereal_** does not bother itself with the macro **SIZE**, as it does not take part in any conditional preprocessing block and thus it is considered a _statement_ rather than an _option_.
 
-* The output of the final executable when compiled with and without the '-a' shortcut accordingly
+* The output of the final executable when compiled with and without the '-a' shortcut
 
 ![alt text](img/with.png)
+
 ![alt text](img/without.png)
+
+* The shortcut system works by expanding a _shortcut_ into its corresponding _value_, so you can easily create new shortcuts whose role is not defining a macro. For example:
+
+```json
+{
+    "compiler": "g++",
+    "compiler-flags": [
+        "-Wall",
+        "-Wextra",
+        "-std=c++17",
+        "-g3"
+    ],
+    "external-libraries": [],
+    "include-path": "./inc",
+    "source-path": "./src",
+    "test-path": "./test",
+    "binaries-path": "./bin",
+    "shortcuts": {
+        "-a": "--local __ARBITARY__",
+        "--reset": "--config --makefile"
+    }
+}
+```
+
+![alt text](img/reset.png)
