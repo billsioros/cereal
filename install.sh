@@ -7,7 +7,7 @@ cereal_complete=~/.cereal_complete
 
 function confirm
 {
-    read -r -p "$1: " answer
+    read -r -p "$(basename "$0"):~ $1: " answer
 
     if [[ "$answer" != [yY] ]] && [[ "$answer" != [yY][eE][sS] ]] && [ ! -z "${answer// }" ]
     then
@@ -17,12 +17,25 @@ function confirm
     return 0
 }
 
-if [ ! -r "$cereal_src" ] || [ ! -d "$(dirname "$cereal_dst")" ]
+if [ "$1" == "--uninstall" ] && confirm "Are you sure you want to continue"
 then
-    echo "Failed to copy '$cereal_src' to $(dirname "$cereal_dst")"; exit 1
+    sed -i '/# cereal/,/# cereal/d' ~/.bashrc
+    sudo rm -v "$cereal_complete" "$cereal_dst" 2> /dev/null
+    exit 0
 fi
 
-sudo cp -i "$cereal_src" "$cereal_dst"
+if [ ! -r "$cereal_src" ] || [ ! -d "$(dirname "$cereal_dst")" ]
+then
+    echo "Failed to install '$cereal_src' at '$(dirname "$cereal_dst")'"
+    exit 1
+fi
+
+if confirm "Would you like to install '$cereal_src' at '$(dirname "$cereal_dst")'"
+then
+    sudo cp "$cereal_src" "$cereal_dst"
+else
+    exit 1
+fi
 
 rule=\
 "
@@ -47,13 +60,14 @@ entry=\
 # cereal
 if [ -r $cereal_complete ]
 then
-    . "$cereal_complete"
+    . $cereal_complete
 fi
 # cereal
 "
 
 if confirm "Should an autocompletion rule be added to '.bashrc'"
 then
+    sed -i '/# cereal/,/# cereal/d' ~/.bashrc
     echo -n "$entry" >> ~/.bashrc
     
     if [ ! -w "$cereal_complete" ] || confirm "Would you like to overwrite '$cereal_complete'"
