@@ -3,14 +3,14 @@
 
 **_cereal_** is a C++ project manager, that offers makefile and module generation utilities as well as a macro definition shortcut system
 
-## Dependecies
-* [python3](https://www.python.org/download/releases/3.0/)
-
 ## Installation
 
 * Simply run the installation script
 * Editing '.bashrc' is required to provide autocompletion
 * Running the installation script with the **--uninstall** option, will walk you through uninstalling **_cereal_**
+
+## Dependecies
+* [python3](https://www.python.org/download/releases/3.0/)
 
 ## Programmatic usage
 
@@ -193,3 +193,7 @@ int main()
 ```
 
 ![alt text](img/reset.png)
+
+## License
+
+The **_cereal_** project is licensed under the [MIT License](https://opensource.org/licenses/MIT)
