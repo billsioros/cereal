@@ -9,7 +9,7 @@
 * Editing '.bashrc' is required to provide autocompletion
 * Running the installation script with the **--uninstall** option, will walk you through uninstalling **_cereal_**
 
-## Dependecies
+## Dependencies
 * [python3](https://www.python.org/download/releases/3.0/)
 
 ## Programmatic usage
