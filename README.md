@@ -1,4 +1,6 @@
 
+![alt text](img/cereal.png)
+
 **_cereal_** is a C++ project manager, that offers makefile and module generation utilities as well as a macro definition shortcut system
 
 ## Installation
