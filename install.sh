@@ -53,7 +53,7 @@ function confirm
 
 echo \
 "
-$(tput setaf 9)
+$(tput setaf 5)
                       X
                      //
      8o8o8o8o8o8o8o8//         BBBBBBBB BBBBBBB BBBBBBB   BBBBBBB BBBBB     BB
