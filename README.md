@@ -5,8 +5,12 @@
 
 ## Installation
 
-* Simply run the installation script
-* Editing '.bashrc' is required to provide autocompletion
+```bash
+git clone https://github.com/billsioros/cereal; cd cereal/; ./install.sh
+```
+
+![alt text](img/install.png)
+
 * Running the installation script with the **--uninstall** option, will walk you through uninstalling **_cereal_**
 
 ## Dependencies
