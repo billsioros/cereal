@@ -1,7 +1,12 @@
 
 ![alt text](img/cereal.png)
 
-**_cereal_** is a C++ project manager, that offers makefile and module generation utilities as well as a macro definition shortcut system
+## Features
+
+* Project management tools
+* Makefile and module generation utilities
+* A macro definition shortcut system
+* Context aware autocompletion
 
 ## Installation
 
@@ -21,7 +26,7 @@ git clone https://github.com/billsioros/cereal; cd cereal/; ./install.sh
 * Firstly, let's run **_cereal_** with the **--config** option, so that a configuration file is generated for our project
 * An input consisting only of whitespace characters results in the field at hand taking its default value
 * The **--config** option can be used in the future to edit the configuration file
-* Bare in mind that generating a new makefile is required for all changes to take effect, in case you alter your configuration file
+* Bare in mind that, in case you alter your configuration file, updating the makefile is probably going to be required for some changes to take effect
 
 ![alt text](img/config.png)
 
