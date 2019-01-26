@@ -1,13 +1,47 @@
 #!/bin/bash
 
-cereal_src=./cereal.sh
-cereal_dst=/usr/local/bin/cereal
+cereal_dir_src="."
+cereal_exe_src="$cereal_dir_src/cereal.sh"
+cereal_com_src="$cereal_dir_src/cereal_complete.sh"
 
-cereal_complete=~/.cereal_complete
+cereal_dir_dst=~/.cereal
+cereal_exe_dst="$cereal_dir_dst/cereal"
+cereal_com_dst="$cereal_dir_dst/cereal_complete"
+cereal_glb_dst="/usr/local/bin/cereal"
+
+entry=\
+"
+# cereal
+if [ -r $cereal_com_dst ]
+then
+    . $cereal_com_dst
+fi
+# cereal
+"
+
+function hightlight
+{
+    if [ "$1" == ERROR ]
+    then
+        color=3
+    elif [ "$1" == "WARNING" ]
+    then
+        color=9
+    else
+        color=6
+    fi
+
+    echo "$(tput setaf $color)$2$(tput sgr0)"
+}
+
+function log
+{
+    echo -e "$(hightlight "$1" "$(basename "$0")":~) $2"
+}
 
 function confirm
 {
-    read -r -p "$(basename "$0"):~ $1: " answer
+    read -r -p "$(log "WARNING" "$1: ")" answer
 
     if [[ "$answer" != [yY] ]] && [[ "$answer" != [yY][eE][sS] ]] && [ ! -z "${answer// }" ]
     then
@@ -19,6 +53,7 @@ function confirm
 
 echo \
 "
+$(tput setaf 9)
                       X
                      //
      8o8o8o8o8o8o8o8//         BBBBBBBB BBBBBBB BBBBBBB   BBBBBBB BBBBB     BB
@@ -26,63 +61,47 @@ echo \
 ==========================    BB        BBBBBBB BBBBBBB   BBBBBBB BBBBBBB   BB
  \...                .../     BB        BB      BB  BBB   BB      BB    BB  BB
     \________________/         BBBBBBBB BBBBBBB BB    BBB BBBBBBB BB     BB BBBBBBB
+
+$(tput sgr0)
 "
 
-if [ "$1" == "--uninstall" ] && confirm "Are you sure you want to continue"
+if [ "$1" == "--uninstall" ] && confirm "Are you sure you want to proceed"
 then
-    sed -i '/# cereal/,/# cereal/d' ~/.bashrc
-    sudo rm -v "$cereal_complete" "$cereal_dst" 2> /dev/null
+    log "WARNING" "Removing directory '$cereal_dir_dst'"
+    rm -riv "$cereal_dir_dst"
+
+    log "WARNING" "Removing cereal from your PATH"
+    sudo rm -iv "$cereal_glb_dst"
+
+    if confirm "Should any existing autocompletion entry be removed from '.bashrc'"
+    then
+        sed -i '/# cereal/,/# cereal/d' ~/.bashrc
+    fi
+
     exit 0
 fi
 
-if [ ! -r "$cereal_src" ] || [ ! -d "$(dirname "$cereal_dst")" ]
+log "MESSAGE" "Creating directory '$cereal_dir_dst'"
+mkdir -p "$cereal_dir_dst"
+
+log "MESSAGE" "Installing cereal at '$cereal_dir_dst'"
+cp -i "$cereal_exe_src" "$cereal_exe_dst"
+
+log "MESSAGE" "Adding cereal to your PATH"
+if [ ! -f "$cereal_glb_dst" ] || confirm "Should '$cereal_glb_dst' be overwritten"
 then
-    echo "Failed to install '$cereal_src' at '$(dirname "$cereal_dst")'"
-    exit 1
+    sudo ln -sf "$cereal_exe_dst" "$cereal_glb_dst"
 fi
-
-if confirm "Would you like to install '$cereal_src' at '$(dirname "$cereal_dst")'"
-then
-    sudo cp "$cereal_src" "$cereal_dst"
-else
-    exit 1
-fi
-
-rule=\
-"
-cereal_dst=\"$cereal_dst\"
-
-function _cereal_complete_
-{
-    local cur
-
-    COMPREPLY=()
-    cur=\"\${COMP_WORDS[COMP_CWORD]}\"
-
-    flags=\"\$(grep -soe '\"--[A-Za-z-]*\"' \"\$cereal_dst\" | sort --unique)\"
-    COMPREPLY=(\$(compgen -W \"\$flags\" -- \"\$cur\"))
-}
-
-complete -F _cereal_complete_ -o bashdefault \"\$(basename \"\$cereal_dst\")\"
-"
-
-entry=\
-"
-# cereal
-if [ -r $cereal_complete ]
-then
-    . $cereal_complete
-fi
-# cereal
-"
 
 if confirm "Should an autocompletion rule be added to '.bashrc'"
 then
     sed -i '/# cereal/,/# cereal/d' ~/.bashrc
     echo -n "$entry" >> ~/.bashrc
     
-    if [ ! -w "$cereal_complete" ] || confirm "Would you like to overwrite '$cereal_complete'"
+    if [ ! -w "$cereal_com_dst" ] || confirm "Should '$cereal_com_dst' be overwritten"
     then
-        echo -n "$rule" > "$cereal_complete"
+        cp "$cereal_com_src" "$cereal_com_dst"
     fi
+    
+    log "MESSAGE" "Restarting your shell is probably required"
 fi
