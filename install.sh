@@ -53,14 +53,14 @@ function confirm
 
 echo \
 "
-$(tput setaf 5)
-                      X
-                     //
-     8o8o8o8o8o8o8o8//         BBBBBBBB BBBBBBB BBBBBBB   BBBBBBB BBBBB     BB
-   o8o8o8o8o8o8o8o8o8o8       BB        BB      BB    BB  BB      BB  BB    BB
-==========================    BB        BBBBBBB BBBBBBB   BBBBBBB BBBBBBB   BB
- \...                .../     BB        BB      BB  BBB   BB      BB    BB  BB
-    \________________/         BBBBBBBB BBBBBBB BB    BBB BBBBBBB BB     BB BBBBBBB
+
+$(tput setaf 5)                      X
+$(tput setaf 5)                     //
+$(tput setaf 5)     8o8o8o8o8o8o8o8//         BBBBBBBB $(tput setaf 0)BBBBBBB BBBBBBB   BBBBBBB BBBBB     BB
+$(tput setaf 5)   o8o8o8o8o8o8o8o8o8o8       BB        $(tput setaf 0)BB      BB    BB  BB      BB  BB    BB
+$(tput setaf 5)==========================    BB        $(tput setaf 0)BBBBBBB BBBBBBB   BBBBBBB BBBBBBB   BB
+$(tput setaf 5) \...                .../     BB        $(tput setaf 0)BB      BB  BBB   BB      BB    BB  BB
+$(tput setaf 5)    \________________/         BBBBBBBB $(tput setaf 0)BBBBBBB BB    BBB BBBBBBB BB     BB BBBBBBB
 
 $(tput sgr0)
 "
