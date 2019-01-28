@@ -376,7 +376,7 @@ with open(\"$config_name\", mode) as file:
             \"-g3\"
         ]
         data[\"external-libraries\"] = []
-        data[\"include-path\"]       = \"./inc\"
+        data[\"include-path\"]       = \"./include\"
         data[\"source-path\"]        = \"./src\"
         data[\"test-path\"]          = \"./test\"
         data[\"binaries-path\"]      = \"./bin\"
