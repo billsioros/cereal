@@ -434,6 +434,16 @@ with open(\"$config_name\", 'r+') as file:
     file.truncate()
 "
 
+main=\
+"
+
+
+int main(int argc, char * argv[])
+{
+    return 0;
+}
+"
+
 if [ ! -f "$config_name" ]
 then
     log MESSAGE "Fill in the following to generate a '$config_name' file"
@@ -472,6 +482,11 @@ do
             if confirm "MESSAGE" "Would you like to create directory '$path': "
             then
                 mkdir -p "$path" 2> /dev/null
+
+                if [ -d "$path" ] && [ "$field" == PATH_TEST ]
+                then
+                    echo -n "$main" > "$PATH_TEST/main.cpp"
+                fi
             else
                 log ERROR "'$path' needs to be created in order to continue"; exit 1
             fi
